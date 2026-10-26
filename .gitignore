@@ -1,0 +1,12 @@
+# Local data and credentials - never commit any of this
+rounds/
+*.garminconnect
+.garminconnect/
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.bak
+DI_CONNECT/
+Golf-*.json
