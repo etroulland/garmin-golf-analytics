@@ -10,3 +10,7 @@ __pycache__/
 *.bak
 DI_CONNECT/
 Golf-*.json
+
+# Test artefacts
+.coverage
+.pytest_cache/
