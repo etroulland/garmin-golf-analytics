@@ -12,7 +12,8 @@ Usage:
     python garmin_golf_fetch.py --zipref ./DI_CONNECT/DI-GOLF
 
 Output (default ./rounds):
-    round_<YYYY-MM-DD>_<scid>.json  ->  {"scorecard": {...}, "shots": {...}, "playedHoles": n}
+    round_<YYYY-MM-DD>_<scid>.json  ->
+        {"scorecard": {...}, "shots": {...}, "course": {...}, "playedHoles": n}
 
 API quirks this script works around:
   * The shot endpoint rejects multi-hole queries ("1,2,...,18" returns a 400).
@@ -21,6 +22,13 @@ API quirks this script works around:
     the activityId. The activityId yields an empty scorecard.
   * Login strategies often emit 429 warnings while a fallback succeeds.
     Judge on the result, not on the warnings.
+  * Per-hole par and the course name live in ``courseSnapshots``, a SIBLING of
+    ``scorecardDetails`` in the same response. Read only ``scorecardDetails``
+    and you lose them, which is why holes[].par reads as null.
+  * ``holePars`` is a string of pars ordered 1..18 on the course, while
+    ``holes[]`` holds the holes actually played and their ``number``. A BACK_9
+    round lists holes 10..18, so pars must be joined on the hole number, never
+    on the position in the array.
 """
 from __future__ import annotations
 
@@ -38,6 +46,27 @@ except ImportError:  # pragma: no cover
 
 CLUB_TYPES_FILE = "Golf-CLUB_TYPES.json"
 CLUBS_FILE = "Golf-CLUB.json"
+
+# clubTypeId -> name, for the types this account actually uses. The API returns
+# the id but never the label, so the table is the only source of readable names.
+# Every entry was checked against a DI-GOLF data export on real clubs; do not
+# guess the gaps, an off-by-one numbering silently mislabels every shot. Types
+# absent from the table fall back to "club:<type>", which still beats a bare id.
+CLUB_TYPE_NAMES = {
+    1: "Driver",            # checked against a data export
+    6: "4 Hybrid",          # checked
+    7: "5 Iron",            # checked
+    12: "4 Iron",           # NOT checked
+    13: "5 Iron",           # NOT checked
+    14: "6 Iron",           # checked
+    15: "7 Iron",           # checked
+    16: "8 Iron",           # checked
+    17: "9 Iron",           # checked
+    19: "Pitching Wedge",   # checked
+    20: "Gap Wedge",        # checked
+    21: "Sand Wedge",       # checked
+    23: "Putter",           # checked
+}
 DEFAULT_OUTDIR = "rounds"
 SUMMARY_PAGE = 50
 
@@ -54,22 +83,45 @@ def load_json(path: str) -> Any:
         return json.load(handle)
 
 
-def build_club_map(reference_dir: str | None) -> dict[int, dict[str, Any]]:
-    """Map clubId -> {name, loft, retired} using a reference Garmin export.
+def club_map_from_api(client: Garmin) -> dict[int, dict[str, Any]]:
+    """Map clubId -> {name, loft, retired} straight from the user's Garmin clubs.
 
-    Garmin's own API does not translate clubId into anything readable, so the
-    mapping still has to come from Golf-CLUB.json / Golf-CLUB_TYPES.json, which
-    ship inside a Garmin Connect data export. Without them the shots are kept
-    with clubId only, and an empty map is returned.
+    `get_golf_club_stats` lists every club, retired ones included, with its
+    clubTypeId, shaft length and flex. It never gives the club's NAME: that is a
+    property of the type, not of the club, so the name comes from CLUB_TYPE_NAMES.
+    """
+    try:
+        clubs = client.get_golf_club_stats()
+    except Exception as exc:  # noqa: BLE001 - names must never block a fetch
+        print(f"club list unavailable ({type(exc).__name__}: {exc}), shots keep raw clubId",
+              file=sys.stderr)
+        return {}
+    club_map: dict[int, dict[str, Any]] = {}
+    for club in clubs or []:
+        name = CLUB_TYPE_NAMES.get(club.get("clubTypeId"))
+        club_map[club["id"]] = {
+            "name": name,
+            "loft": None,
+            "flex": club.get("flexTypeId"),
+            "shaftLength": club.get("shaftLength"),
+            "retired": club.get("retired"),
+        }
+    return club_map
+
+
+def build_club_map(reference_dir: str | None) -> dict[int, dict[str, Any]]:
+    """Map clubId -> {name, loft, retired} using an optional Garmin data export.
+
+    Kept as an override: a DI-GOLF export carries the loft per club, which the
+    API does not expose. Without it the map comes from `club_map_from_api`.
     """
     if not reference_dir:
-        print("no --zipref given: shots keep raw clubId, no club names", file=sys.stderr)
         return {}
 
     clubs_path = os.path.join(reference_dir, CLUBS_FILE)
     types_path = os.path.join(reference_dir, CLUB_TYPES_FILE)
     if not (os.path.exists(clubs_path) and os.path.exists(types_path)):
-        print(f"club reference missing in {reference_dir}", file=sys.stderr)
+        print(f"club reference missing in {reference_dir}, ignoring --zipref", file=sys.stderr)
         return {}
 
     types = {entry["value"]: entry for entry in load_json(types_path).get("data", [])}
@@ -109,15 +161,48 @@ def attach_clubs(shots: dict[int, list[dict]], club_map: dict[int, dict]) -> Non
             shot["clubLoft"] = club.get("loft")
 
 
+def build_course(raw_course_snapshots: list[dict] | None) -> dict[str, Any]:
+    """Normalise courseSnapshots into {name, city, country, pars, roundPar}.
+
+    `pars` is {hole number: par}. The API sends holePars as a digit string
+    ordered 1..18, delivered in whatever orientation the snapshot stores.
+    """
+    if not raw_course_snapshots:
+        return {}
+    snapshot = raw_course_snapshots[0]
+    digits = str(snapshot.get("holePars") or "")
+    pars: dict[int, int] = {}
+    for index, char in enumerate(digits, start=1):
+        if char.isdigit():
+            pars[index] = int(char)
+    return {
+        "name": snapshot.get("name"),
+        "city": snapshot.get("city"),
+        "country": snapshot.get("country"),
+        "courseGlobalId": snapshot.get("courseGlobalId"),
+        "courseSnapshotId": snapshot.get("courseSnapshotId"),
+        "frontNinePar": snapshot.get("frontNinePar"),
+        "backNinePar": snapshot.get("backNinePar"),
+        "roundPar": snapshot.get("roundPar"),
+        "pars": pars,
+    }
+
+
 def fetch_round(client: Garmin, scid: int, club_map: dict[int, dict]) -> dict:
-    scorecard = client.get_golf_scorecard(scid)["scorecardDetails"][0]["scorecard"]
+    payload = client.get_golf_scorecard(scid)
+    scorecard = payload["scorecardDetails"][0]["scorecard"]
     holes = scorecard.get("holes", []) or []
     # holes[] is padded with strokes=None for unplayed holes: length is the
     # only reliable hole count, and the API needs a number, not a real count.
     played = sum(1 for hole in holes if hole.get("strokes") is not None)
+    # Garmin's own `score` field is a NET score built on handicappedStrokes; it
+    # reads wrong on partial rounds and nothing here uses it. Drop it rather than
+    # ship a number that invites a subtraction it cannot survive.
+    scorecard.pop("score", None)
     shots = fetch_shots(client, scid, len(holes) or 18)
     attach_clubs(shots, club_map)
-    return {"scorecard": scorecard, "shots": shots, "playedHoles": played}
+    course = build_course(payload.get("courseSnapshots"))
+    return {"scorecard": scorecard, "shots": shots, "course": course, "playedHoles": played}
 
 
 def select_targets(client: Garmin, days: int | None, scid: int | None) -> list[int]:
@@ -134,7 +219,7 @@ def select_targets(client: Garmin, days: int | None, scid: int | None) -> list[i
     ]
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--days", type=int, help="fetch every round played in the last N days")
     parser.add_argument("--scid", type=int, help="fetch one scorecard by id")
@@ -149,14 +234,19 @@ def main() -> int:
         default=os.environ.get("GARMINTOKENS", os.path.expanduser("~/.garminconnect")),
         help="garminconnect token store (default: $GARMINTOKENS)",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if not os.path.isdir(args.tokenstore):
         print(f"token store not found: {args.tokenstore} (run garminconnect login first)", file=sys.stderr)
         return 2
 
     client = login(args.tokenstore)
-    club_map = build_club_map(args.zipref)
+    club_map = build_club_map(args.zipref) or club_map_from_api(client)
+    if club_map:
+        named = sum(1 for club in club_map.values() if club.get("name"))
+        print(f"{len(club_map)} clubs mapped, {named} named", file=sys.stderr)
+    else:
+        print("no club names: shots keep raw clubId", file=sys.stderr)
     targets = select_targets(client, args.days, args.scid)
     if not targets:
         print("no round in the requested window", file=sys.stderr)
@@ -175,8 +265,10 @@ def main() -> int:
         with open(path, "w", encoding="utf-8") as handle:
             json.dump(bundle, handle, ensure_ascii=False, indent=1)
         shot_count = sum(len(s) for s in bundle["shots"].values())
+        course_name = bundle["course"].get("name") or "unknown course"
         print(
-            f"OK {played_on} scid={scid} strokes={bundle['scorecard'].get('strokes')} "
+            f"OK {played_on} scid={scid} course={course_name} par={bundle['course'].get('roundPar')} "
+            f"strokes={bundle['scorecard'].get('strokes')} "
             f"holes={bundle['playedHoles']} shots={shot_count} -> {path}"
         )
         written += 1
