@@ -156,11 +156,35 @@ def test_lie_order_puts_bunker_and_recovery_last():
     assert ordered[-1] == "Recovery"
 
 
-def test_collect_drops_putts():
-    putt = shot("Putter", 5)
-    putt["shotType"] = "PUTT"
-    grouped = club_report.collect([putt, shot("7 Iron", 120)], min_meters=0, lie=None)
-    assert ("Putter", "Fairway") not in grouped
+def test_collect_drops_putts_on_the_green():
+    on_green = shot("Putter", 4, lie="Green")
+    on_green["shotType"] = "PUTT"
+    on_green["endLoc"] = {"lie": "Green"}
+    grouped = club_report.collect([on_green], min_meters=0, lie=None)
+    assert grouped == {}
+
+
+def test_collect_keeps_a_putt_played_off_the_green():
+    # Dry, fast turf: the putter is a legitimate approach club.
+    approach = shot("Putter", 22, lie="Rough")
+    approach["shotType"] = "PUTT"
+    approach["endLoc"] = {"lie": "Green"}
+    grouped = club_report.collect([approach], min_meters=0, lie=None)
+    assert grouped[("Putter (approach)", "Rough")] == [(22.0, "Green")]
+
+
+def test_collect_keeps_an_untagged_putter_approach():
+    approach = shot("Putter", 18, lie="Fairway")
+    approach["endLoc"] = {"lie": "Green"}
+    grouped = club_report.collect([approach], min_meters=0, lie=None)
+    assert ("Putter (approach)", "Fairway") in grouped
+
+
+def test_collect_drops_a_putter_shot_that_stays_off_the_green():
+    miss = shot("Putter", 15, lie="Rough")
+    miss["endLoc"] = {"lie": "Rough"}
+    grouped = club_report.collect([miss], min_meters=0, lie=None)
+    assert grouped == {}
 
 
 def test_collect_keeps_the_ending_lie():

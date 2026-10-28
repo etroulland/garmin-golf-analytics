@@ -6,6 +6,19 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- Putter approaches get their own row. A putt played from the fairway, the rough
+  or a bunker and stopping on the green is reported as `Putter (approach)`; a
+  putt played from the green is still dropped as short game. Garmin tags both
+  the same way, so the lie decides.
+
+### Changed
+
+- Mishits are relative to the club: a shot under 60 m counts as a mishit, or
+  under half the club's own median when that is lower. A flat 60 m floor hid
+  every wedged shot behind a `n=0` row.
+
 ## [0.0.2] - 2026-10-28
 
 Reports stop claiming more than the data says. See the entries below, which were
