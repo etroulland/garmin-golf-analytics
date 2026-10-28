@@ -32,6 +32,10 @@ from rounds_common import load_bundles, played_holes, select
 
 LIE_ORDER = ("TeeBox", "Fairway", "Rough", "Bunker", "Green", "Recovery")
 GOOD_LIES = ("Fairway", "Green")
+# The putter is a real club off the green on dry, fast turf: a putt hit from the
+# green is a stroke of the short game, a putt hit from anywhere else is an
+# approach and deserves its own row. Garmin gives both the same shotType.
+PUTTER = "Putter"
 # A shot this short is a top, a duff or a mis-hit: it never describes the club.
 MISHIT_METERS = 60
 # No distance floor by default: a floor applied to every club silently deletes
@@ -66,9 +70,9 @@ def iter_shots(bundles: Iterable[dict]) -> Iterable[dict]:
 def collect(shots: Iterable[dict], min_meters: float, lie: str | None) -> dict[tuple, list[tuple[float, str]]]:
     """Group shots by (club, lie) as (distance, ending lie) pairs.
 
-    club falls back to the raw clubId when no reference export was supplied.
-    Putts are dropped: a Putter distance is not a club distance, and Garmin
-    records a few of them when the watch guesses a club.
+    A putt hit ON the green is dropped: it is short-game, not a club distance.
+    A putt hit anywhere else is kept as "Putter (approach)", because Garmin tags
+    both the same way and the off-green one is a real shot the player chose.
     """
     grouped: dict[tuple, list[tuple[float, str]]] = defaultdict(list)
     for shot in shots:
@@ -77,19 +81,27 @@ def collect(shots: Iterable[dict], min_meters: float, lie: str | None) -> dict[t
         # carry an UNKNOWN shotType and must never be shown as a "club".
         if not shot.get("clubId") or shot.get("excludeFromStats"):
             continue
-        if shot.get("shotType") == "PUTT":
+        shot_lie = (shot.get("startLoc") or {}).get("lie") or "Unknown"
+        end_lie = (shot.get("endLoc") or {}).get("lie") or "Unknown"
+        if shot.get("shotType") == "PUTT" and shot_lie == "Green":
             continue
         # No name means an unmapped clubTypeId (or a club the watch faked):
         # an id in a club table is noise, and it cannot be compared to anything.
         club = shot.get("clubName")
         if not club:
             continue
-        shot_lie = (shot.get("startLoc") or {}).get("lie") or "Unknown"
+        # Keep putts played off the green: they are approaches with a flat club.
+        if club == PUTTER and shot_lie == "Green":
+            continue
+        if club == PUTTER:
+            # A putt that never reaches the green is not an approach either.
+            if end_lie != "Green":
+                continue
+            club = "Putter (approach)"
         if meters is None or meters < min_meters:
             continue
         if lie and shot_lie != lie:
             continue
-        end_lie = (shot.get("endLoc") or {}).get("lie") or "Unknown"
         grouped[(club, shot_lie)].append((float(meters), end_lie))
     return grouped
 
@@ -105,7 +117,9 @@ def report(grouped: dict[tuple, list[tuple[float, str]]], min_shots: int) -> Non
         print(f"{'club':22} {'n':>3} {'med':>6} {'good%':>6} {'max':>6} {'mishits':>8}   (total m)")
         rows = sorted(by_lie[lie], key=lambda row: -percentile([d for d, _ in row[1]], 0.5))
         for club, shots in rows:
-            played = [d for d, _ in shots if d >= MISHIT_METERS]
+            # The club's own floor: a wedge never plays 60 m, a driver never plays 12.
+            floor = min(MISHIT_METERS, percentile([d for d, _ in shots], 0.5) * 0.5)
+            played = [d for d, _ in shots if d >= floor]
             mishits = len(shots) - len(played)
             good = sum(1 for _, lie_out in shots if lie_out in GOOD_LIES)
             med = percentile(played, 0.5) if played else float("nan")
