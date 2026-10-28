@@ -6,6 +6,11 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.0.2] - 2026-10-28
+
+Reports stop claiming more than the data says. See the entries below, which were
+written for this release.
+
 ### Added
 
 - `rounds_common.py`: the round selection rules (Garmin `excludeFromStats`,
