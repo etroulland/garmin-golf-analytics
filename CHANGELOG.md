@@ -6,6 +6,19 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.0.4] - 2026-10-29
+
+### Added
+
+- `release.yml`: publishing to PyPI on a `v*` tag through Trusted Publishing
+  (OIDC, `id-token: write`). Builds and tests run before the upload; no API
+  token is stored anywhere.
+
+### Fixed
+
+- The package metadata pointed `Changelog` at a `master` branch that does not
+  exist on the remote.
+
 ## [0.0.3] - 2026-10-29
 
 ### Added
