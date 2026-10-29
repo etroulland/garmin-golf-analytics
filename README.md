@@ -1,5 +1,8 @@
 # garmin-golf-analytics
 
+[![tests](https://github.com/etroulland/garmin-golf-analytics/actions/workflows/tests.yml/badge.svg)](https://github.com/etroulland/garmin-golf-analytics/actions/workflows/tests.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Pull your Garmin Connect golf rounds and turn them into numbers you can act on: measured shot
 distances per club, split by lie, plus a round debrief that isn't fooled by Garmin's own
 defaults.

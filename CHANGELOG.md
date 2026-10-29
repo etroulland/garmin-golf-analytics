@@ -17,6 +17,12 @@ All notable changes to this project are documented here. Format follows
 - `tests/test_cli.py`: the dispatcher's help, unknown-command and argv
   forwarding paths.
 
+### Removed
+
+- `requirements-dev.txt`. It duplicated the `dev` extra with an unpinned
+  `garminconnect` and no version floor; `pip install -e '.[dev]'` is the
+  documented path.
+
 ### Changed
 
 - The six modules moved from the repo root to `src/garmin_golf_analytics/`.
