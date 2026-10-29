@@ -1,5 +1,7 @@
 # garmin-golf-analytics
 
+[![PyPI](https://img.shields.io/pypi/v/garmin-golf-analytics.svg)](https://pypi.org/project/garmin-golf-analytics/)
+[![Python versions](https://img.shields.io/pypi/pyversions/garmin-golf-analytics.svg)](https://pypi.org/project/garmin-golf-analytics/)
 [![tests](https://github.com/etroulland/garmin-golf-analytics/actions/workflows/tests.yml/badge.svg)](https://github.com/etroulland/garmin-golf-analytics/actions/workflows/tests.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
