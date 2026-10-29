@@ -6,6 +6,20 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.0.8] - 2026-10-29
+
+### Added
+
+- `gga-clubs --matrix --matrix-axis kind`: the same club x column table, but the
+  columns are what the shot was (tee, approach, chip...). Splits a club that is
+  used for two different jobs instead of averaging them: a 6-iron tees off and
+  approaches at distances far enough apart to make a single median useless.
+
+### Fixed
+
+- `--matrix` exits 1 when the requested columns hold no shot, instead of
+  printing nothing and reporting success.
+
 ## [0.0.7] - 2026-10-29
 
 ### Added

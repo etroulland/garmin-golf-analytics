@@ -73,6 +73,9 @@ LONG_CLUBS = ("Driver", "1 Wood", "3 Wood", "2 Wood", "4 Wood")
 LAYUP_ON_TEE = "Layup (tee)"
 SHORT_GAME_SHOT_TYPES = ("CHIP", "PITCH", "RECOVERY")
 MISHIT_LABEL = "Mishit"
+# The order a player thinks about a hole: off the tee, then the second shot,
+# then the short game, with whatever could not be classified last.
+KIND_ORDER = ("Tee", LAYUP_ON_TEE, "Approach", "Layup", "Pitch", "Chip", "Recovery", "Putt", UNKNOWN_LABEL)
 
 
 # Garmin only stores a single "meters" value per shot: the GPS distance from the
@@ -274,8 +277,7 @@ def report_by_kind(grouped: dict[tuple, list[float]], min_shots: int) -> None:
     # Order the rows the way a player thinks about a hole: off the tee, then the
     # second shot, then the short game. Unclassified last, so the honest gap in
     # Garmin's data is impossible to overlook.
-    ordered_kinds = ("Tee", LAYUP_ON_TEE, "Approach", "Layup", "Pitch", "Chip", "Recovery", "Putt", UNKNOWN_LABEL)
-    kind_rank = {label: index for index, label in enumerate(ordered_kinds)}
+    kind_rank = {label: index for index, label in enumerate(KIND_ORDER)}
     for club in sorted(by_club, key=lambda name: -percentile(by_club[name][0][1], 0.5)):
         print(f"\n## {club}")
         print(f"{'shot':20} {'n':>3} {'med':>6} {'p75':>6} {'max':>6} {'mishits':>8}   (total m)")
@@ -291,36 +293,47 @@ def report_by_kind(grouped: dict[tuple, list[float]], min_shots: int) -> None:
             )
 
 
-def report_matrix(grouped: dict[tuple, list[tuple[float, str]]], min_shots: int, lies: tuple[str, ...]) -> None:
-    """One table: clubs as rows, lies as columns, the median distance in each cell.
-
-    Reading a club across a row is the question actually asked on the course:
-    does the 7-iron still go the same distance off the rough as off the fairway?
-    A cell shows the median and its sample size, `-` when nothing was tracked
-    there. Cells under `min_shots` are flagged, because a median over two shots
-    is a coincidence, not a distance.
-    """
+def matrix_cells(grouped: dict[tuple, list], columns: tuple[str, ...]) -> dict[tuple[str, str], list[float]]:
+    """Keep only the wanted columns, dropping an empty list so it prints as `-`."""
     cells: dict[tuple[str, str], list[float]] = {}
-    for (club, lie), shots in grouped.items():
-        if lie not in lies:
+    for (club, column), values in grouped.items():
+        if column not in columns:
             continue
-        kept = [d for d, _ in shots]
+        kept = [float(value[0]) if isinstance(value, tuple) else float(value) for value in values]
         if kept:
-            cells[(club, lie)] = kept
-    if not cells:
-        print("no shot in those lies", file=sys.stderr)
-        return
+            cells[(club, column)] = kept
+    return cells
 
-    clubs = sorted({club for club, _ in cells},
-                   key=lambda name: -percentile(cells.get((name, lies[0]), [0.0]), 0.5))
-    total_width = 22 + 11 * len(lies)
-    print("median total distance per club and lie (m), n in parentheses")
-    print(f"\n{'club':22}" + "".join(f"{lie[:10]:>11}" for lie in lies))
+
+def print_matrix(cells: dict[tuple[str, str], list[float]], columns: tuple[str, ...],
+                 min_shots: int, title: str, empty_message: str) -> bool:
+    """Render clubs in rows, `columns` in columns, median and n in each cell.
+
+    Returns False when there was nothing to print, so the caller can exit 1
+    instead of reporting success on an empty table.
+    """
+    if not cells:
+        print(empty_message, file=sys.stderr)
+        return False
+
+    # Order by the first column that has data, so an empty first column does not
+    # scramble the whole table.
+    def order_key(name: str) -> float:
+        for column in columns:
+            distances = cells.get((name, column))
+            if distances:
+                return -percentile(distances, 0.5)
+        return 0.0
+
+    clubs = sorted({club for club, _ in cells}, key=order_key)
+    total_width = 22 + 11 * len(columns)
+    print(title)
+    print(f"\n{'club':22}" + "".join(f"{column[:10]:>11}" for column in columns))
     print("-" * total_width)
     for club in clubs:
         row = f"{club[:22]:22}"
-        for lie in lies:
-            distances = cells.get((club, lie))
+        for column in columns:
+            distances = cells.get((club, column))
             if not distances:
                 row += f"{'-':>11}"
                 continue
@@ -329,6 +342,35 @@ def report_matrix(grouped: dict[tuple, list[tuple[float, str]]], min_shots: int,
             row += f"{f'{med:.0f} ({len(distances)}){flag}':>11}"
         print(row)
     print(f"\n* fewer than {min_shots} tracked shots: the median is not a distance yet")
+    return True
+
+
+def report_matrix(grouped: dict[tuple, list[tuple[float, str]]], min_shots: int, lies: tuple[str, ...]) -> bool:
+    """One table: clubs as rows, lies as columns, the median distance in each cell.
+
+    Reading a club across a row is the question actually asked on the course:
+    does the 7-iron still go the same distance off the rough as off the fairway?
+    A cell shows the median and its sample size, `-` when nothing was tracked
+    there. Cells under `min_shots` are flagged, because a median over two shots
+    is a coincidence, not a distance.
+    """
+    return print_matrix(matrix_cells(grouped, lies), lies, min_shots,
+                 "median total distance per club and lie (m), n in parentheses",
+                 "no shot in those lies")
+
+
+def report_kind_matrix(grouped: dict[tuple, list[float]], min_shots: int,
+                       kinds: tuple[str, ...]) -> bool:
+    """Same table, but the columns are what the shot was instead of the lie.
+
+    Lies say where the ball was, shot kinds say what the player was trying to
+    do. A 6-iron off the tee going 158 m and off the fairway going 121 m is an
+    average nobody plays; splitting by kind shows whether the fairway number is
+    a layup or an approach before blaming the lie.
+    """
+    return print_matrix(matrix_cells(grouped, kinds), kinds, min_shots,
+                 "median total distance per club and shot kind (m), n in parentheses",
+                 "no shot of that kind")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -344,10 +386,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--by-shot-type", action="store_true",
                         help="split each club by what the shot was (tee, approach, chip, ...) "
                              "instead of by lie only")
-    parser.add_argument("--matrix", nargs="?", const="TeeBox,Fairway", default=None,
-                        metavar="LIES",
-                        help="one table with clubs in rows and lies in columns; "
-                             "LIES is comma-separated (default: TeeBox,Fairway)")
+    parser.add_argument("--matrix", nargs="?", const="", default=None, metavar="COLUMNS",
+                        help="one table with clubs in rows and comma-separated COLUMNS; "
+                             "defaults to the TeeBox,Fairway lies, or to the shot kinds "
+                             "with --matrix-axis kind")
+    parser.add_argument("--matrix-axis", choices=("lie", "kind"), default="lie",
+                        help="what the --matrix columns mean: a lie or a shot kind (default: lie)")
     parser.add_argument("--keep-excluded", action="store_true",
                         help="also use rounds Garmin flagged excludeFromStats")
     args = parser.parse_args(argv)
@@ -367,18 +411,28 @@ def main(argv: list[str] | None = None) -> int:
     shots = list(iter_shots(kept))
     pars = bundle_pars(kept)
     print(f"{selection.describe()}, {len(shots)} tracked shots, distances are {DISTANCE_LABEL}")
-    if args.matrix:
-        lies = tuple(name.strip() for name in args.matrix.split(",") if name.strip())
-        unknown = [name for name in lies if name not in LIE_ORDER]
+    if args.matrix is not None:
+        default_columns = "TeeBox,Fairway" if args.matrix_axis == "lie" else "Tee,Approach,Chip"
+        raw = args.matrix or default_columns
+        columns = tuple(name.strip() for name in raw.split(",") if name.strip())
+        known = LIE_ORDER if args.matrix_axis == "lie" else KIND_ORDER
+        unknown = [name for name in columns if name not in known]
         if unknown:
-            print(f"unknown lie(s): {', '.join(unknown)}; known: {', '.join(LIE_ORDER)}", file=sys.stderr)
+            print(f"unknown {args.matrix_axis}(s): {', '.join(unknown)}; known: {', '.join(known)}",
+                  file=sys.stderr)
             return 2
-        grouped = collect(shots, args.min_meters, None, pars)
-        if not grouped:
-            print("no shot above the distance floor", file=sys.stderr)
-            return 1
-        report_matrix(grouped, args.min_shots, lies)
-        return 0
+        if args.matrix_axis == "lie":
+            grouped = collect(shots, args.min_meters, None, pars)
+            if not grouped:
+                print("no shot above the distance floor", file=sys.stderr)
+                return 1
+            return 0 if report_matrix(grouped, args.min_shots, columns) else 1
+        else:
+            by_kind = collect_by_kind(shots, args.min_meters, pars)
+            if not by_kind:
+                print("no shot above the distance floor", file=sys.stderr)
+                return 1
+            return 0 if report_kind_matrix(by_kind, args.min_shots, columns) else 1
     if args.by_shot_type:
         by_kind = collect_by_kind(shots, args.min_meters, pars)
         if not by_kind:
