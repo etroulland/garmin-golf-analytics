@@ -130,6 +130,19 @@ Strokes per hole distribution, blow-up rate, penalties per round, and three-putt
 fewer than 9 played holes, or under 35 strokes on 9 / 60 on 18, are dropped as practice or
 abandoned before anything is averaged.
 
+## Compare two periods
+
+```bash
+gga-compare rounds/ --period 2025 --period 2026            # whole calendar years
+gga-compare rounds/ --period 2026-01-01:2026-06-30 --period 2026-07-01:2026-12-31
+```
+
+Two windows side by side, with the signed delta from the first to the second. Every figure is
+per hole or a rate: a 9-hole over-par and an 18-hole one are not the same number, so they are
+never compared raw. Windows are explicit dates, never guessed months, and a delta computed on
+fewer than 5 rounds per side is printed with a low-confidence warning instead of being presented
+as progress. Putts are counted only on rounds Garmin actually measured.
+
 ## Layout
 
 ```
@@ -137,11 +150,12 @@ src/garmin_golf_analytics/
   garmin_golf_fetch.py  fetch rounds from the Garmin API
   club_report.py        distance tables per club, split by lie
   round_report.py       score, penalties, blow-up holes, putting
-  rounds_common.py      which rounds count, shared by both reports
+  compare_report.py     two date windows, per-hole figures and their delta
+  rounds_common.py      which rounds count, shared by every report
   scoring.py            per-hole par and relative score
   hole_sync.py          tracked shots vs scorecard reconciliation
   cli.py                the `gga` dispatcher
-tests/                  125 tests, 97% coverage
+tests/                  198 tests, 93% coverage
 ```
 
 ## Development

@@ -26,19 +26,26 @@ def rounds() -> int:
     return main()
 
 
+def compare() -> int:
+    from .compare_report import main
+
+    return main()
+
+
 def main(argv: list[str] | None = None) -> int:
-    """Dispatch on the first argument: ``cli fetch|clubs|rounds ...``."""
+    """Dispatch on the first argument: ``cli fetch|clubs|rounds|compare ...``."""
     args = list(sys.argv[1:] if argv is None else argv)
-    commands = {"fetch": fetch, "clubs": clubs, "rounds": rounds}
+    commands = {"fetch": fetch, "clubs": clubs, "rounds": rounds, "compare": compare}
     if not args or args[0] in ("-h", "--help"):
-        print("usage: cli {fetch,clubs,rounds} [options]\n"
-              "  fetch   pull rounds from Garmin Connect\n"
-              "  clubs   per-club distances, split by lie\n"
-              "  rounds  round debrief (score, penalties, putting)")
+        print("usage: cli {fetch,clubs,rounds,compare} [options]\n"
+              "  fetch    pull rounds from Garmin Connect\n"
+              "  clubs    per-club distances, split by lie\n"
+              "  rounds   round debrief (score, penalties, putting)\n"
+              "  compare  two date windows side by side")
         return 0 if args else 2
     command = commands.get(args[0])
     if command is None:
-        print(f"unknown command: {args[0]} (expected fetch, clubs or rounds)", file=sys.stderr)
+        print(f"unknown command: {args[0]} (expected fetch, clubs, rounds or compare)", file=sys.stderr)
         return 2
     sys.argv = [f"cli {args[0]}", *args[1:]]
     return command()

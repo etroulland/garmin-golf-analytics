@@ -8,12 +8,12 @@ from garmin_golf_analytics import cli
 
 def test_help_without_arguments_returns_error(capsys):
     assert cli.main([]) == 2
-    assert "usage: cli {fetch,clubs,rounds}" in capsys.readouterr().out
+    assert "usage: cli {fetch,clubs,rounds,compare}" in capsys.readouterr().out
 
 
 def test_explicit_help_returns_success(capsys):
     assert cli.main(["--help"]) == 0
-    assert "rounds  round debrief" in capsys.readouterr().out
+    assert "rounds   round debrief" in capsys.readouterr().out
 
 
 def test_unknown_command_is_rejected(capsys):

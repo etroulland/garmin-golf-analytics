@@ -6,6 +6,17 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.0.12] - 2026-10-29
+
+### Added
+
+- `gga-compare` (also `gga compare`): two date windows side by side, the signed
+  delta from the first to the second. Periods are explicit (`2025` or
+  `2026-01-01:2026-06-30`), never guessed months. Strokes per hole, over par per
+  hole, net per hole, blow-up rate, penalties per round and 3-putt rate, so
+  windows with different hole counts stay comparable. A delta under 5 rounds per
+  side is printed with a low-confidence warning; one empty window exits 1.
+
 ## [0.0.11] - 2026-10-29
 
 ### Changed
