@@ -24,6 +24,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import io
 import os
 import sys
 from collections import Counter
@@ -162,5 +163,18 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def entry_point(argv: list[str] | None = None) -> int:
+    """Console-script wrapper: see club_report.entry_point for why."""
+    try:
+        return main(argv)
+    except BrokenPipeError:
+        try:
+            devnull = os.open(os.devnull, os.O_WRONLY)
+            os.dup2(devnull, sys.stdout.fileno())
+        except (OSError, ValueError, io.UnsupportedOperation):
+            pass
+        return 0
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(entry_point())

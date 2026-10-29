@@ -36,8 +36,8 @@ Changelog = "https://github.com/etroulland/garmin-golf-analytics/blob/main/CHANG
 [project.scripts]
 gga = "garmin_golf_analytics.cli:main"
 gga-fetch = "garmin_golf_analytics.garmin_golf_fetch:main"
-gga-clubs = "garmin_golf_analytics.club_report:main"
-gga-rounds = "garmin_golf_analytics.round_report:main"
+gga-clubs = "garmin_golf_analytics.club_report:entry_point"
+gga-rounds = "garmin_golf_analytics.round_report:entry_point"
 
 [tool.setuptools.dynamic]
 version = { attr = "garmin_golf_analytics.__version__" }

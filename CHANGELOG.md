@@ -6,6 +6,15 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.0.6] - 2026-10-29
+
+### Fixed
+
+- `gga-clubs rounds/ | head` no longer ends in a `BrokenPipeError` traceback.
+  Piping into `head`, `less` or `grep -m1` is how this output is normally read,
+  so the console scripts now exit 0 when their reader closes the pipe. A real
+  exception still propagates.
+
 ## [0.0.5] - 2026-10-29
 
 ### Fixed

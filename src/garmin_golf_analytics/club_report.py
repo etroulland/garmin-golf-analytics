@@ -23,6 +23,7 @@ of the swings played), so a club with n < 5 gets flagged low-confidence.
 from __future__ import annotations
 
 import argparse
+import io
 import os
 import sys
 from collections import defaultdict
@@ -344,5 +345,27 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def entry_point(argv: list[str] | None = None) -> int:
+    """Console-script wrapper: `gga-clubs rounds/ | head` must not crash.
+
+    Closing the pipe raises BrokenPipeError on the next print, and Python then
+    flushes stdout again at exit, which raises a second one and prints a
+    traceback. Both are silenced and the process exits 0 like any other Unix
+    tool whose reader went away.
+    """
+    try:
+        return main(argv)
+    except BrokenPipeError:
+        # Point fd 1 at /dev/null so the flush at interpreter exit cannot raise
+        # a second BrokenPipeError. stdout has no fd when it is captured (pytest,
+        # an embedding app): then there is nothing left to flush anyway.
+        try:
+            devnull = os.open(os.devnull, os.O_WRONLY)
+            os.dup2(devnull, sys.stdout.fileno())
+        except (OSError, ValueError, io.UnsupportedOperation):
+            pass
+        return 0
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(entry_point())
