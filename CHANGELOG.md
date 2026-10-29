@@ -6,6 +6,8 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.0.3] - 2026-10-29
+
 ### Added
 
 - Installable package: `pyproject.toml` (PEP 621, setuptools, `src/` layout),
@@ -135,7 +137,9 @@ written for this release.
   wedge `Fairway`. Filtering on `TeeBox` is not "tee shots only".
 - `--min-meters` (default 40) applies one floor to every club, which starves the
   wedges of full-swing samples. Still unchanged by design.
-- No `pyproject.toml`, no entry points, `garminconnect` not pinned.
 - `shotType` (APPROACH / TEE / CHIP / LAYUP / UNKNOWN) is not used yet, so a chip
   and an approach of the same length still share a row. `UNKNOWN` is 23% of the
   tracked shots and is silently dropped from the distance table.
+
+Resolved in [0.0.3]: the package is installable (`pyproject.toml`, entry points,
+pinned `garminconnect`) and `--min-meters` defaults to no floor.
