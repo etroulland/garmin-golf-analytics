@@ -143,6 +143,33 @@ never compared raw. Windows are explicit dates, never guessed months, and a delt
 fewer than 5 rounds per side is printed with a low-confidence warning instead of being presented
 as progress. Putts are counted only on rounds Garmin actually measured.
 
+`--by club` compares distances instead of scoring: one row per club and shot kind, the median of
+each window and the gap between them.
+
+```bash
+gga-compare rounds/ --period 2025 --period 2026 --by club
+```
+
+A club hit in only one window is still a row, with the other side left blank: a club that entered
+the bag is exactly the change worth seeing. A distance delta needs `--min-shots` usable shots on
+each side (default 5) and is withheld below that, never extrapolated from two swings.
+
+## Machine-readable output
+
+`gga-rounds`, `gga-clubs` and `gga-compare` take `--format json` or `--format csv`. Both write
+records and nothing else on stdout, so they pipe into `jq` or a spreadsheet without scraping padded
+columns.
+
+```bash
+gga-rounds rounds/ --format csv > rounds.csv
+gga-compare rounds/ --period 2025 --period 2026 --by club --format json | jq '.[] | select(.delta_m)'
+```
+
+Every record is flat and self-describing: units live in the key (`median_m`, `blowup_holes_percent`,
+`penalties_per_round`), periods are named on every row so two comparisons can be concatenated, and
+an unmeasured value stays `null` instead of becoming a zero. A withheld delta is `null` with
+`low_confidence: true`, which is a different statement from "no change".
+
 ## Layout
 
 ```
@@ -150,7 +177,8 @@ src/garmin_golf_analytics/
   garmin_golf_fetch.py  fetch rounds from the Garmin API
   club_report.py        distance tables per club, split by lie
   round_report.py       score, penalties, blow-up holes, putting
-  compare_report.py     two date windows, per-hole figures and their delta
+  compare_report.py     two date windows, per-hole or per-club figures and their delta
+  output.py             --format json/csv records shared by every report
   rounds_common.py      which rounds count, shared by every report
   scoring.py            per-hole par and relative score
   hole_sync.py          tracked shots vs scorecard reconciliation

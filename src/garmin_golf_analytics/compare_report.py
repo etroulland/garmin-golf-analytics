@@ -26,9 +26,12 @@ import sys
 from datetime import date
 from statistics import median
 
+from .club_report import (DEFAULT_MIN_SHOTS, DISTANCE_LABEL, MISHIT_METERS, bundle_pars,
+                          collect_by_kind, iter_shots, percentile)
 from .rounds_common import load_bundles, played_holes, select
 from .round_report import BLOWUP_STROKES, putt_status
 from .scoring import net_score, relative_score
+from . import output
 
 DESCRIPTION = "Compare two date windows: is the player better now than before?"
 DEFAULT_MIN_HOLES = 9
@@ -118,6 +121,99 @@ def profile(bundles: list[dict]) -> dict:
     }
 
 
+def club_profile(bundles: list[dict], min_meters: float) -> list[dict]:
+    """Per-club, per-shot-kind distance profile of one selection of rounds.
+
+    Same shot rules as club_report.py (`collect_by_kind`: putts on the green
+    out, putts ending on the green kept as "Putter (approach)", mishit floor per
+    club), so a distance here is the distance gga-clubs prints for that row.
+
+    One record per (club, kind) with at least one usable shot. `p75` and `max`
+    are the same percentiles the club table shows, not guesses.
+    """
+    grouped = collect_by_kind(iter_shots(bundles), min_meters, bundle_pars(bundles))
+    records = []
+    for (club, kind), distances in sorted(grouped.items()):
+        median_distance = percentile(distances, 0.5)
+        # The club's own floor: a wedge never plays 60 m, a driver never plays 12.
+        floor = min(MISHIT_METERS, median_distance * 0.5)
+        played = [distance for distance in distances if distance >= floor]
+        if not played:
+            continue
+        records.append({
+            "club": club,
+            "shot_kind": kind,
+            "n": len(played),
+            "median_m": round(percentile(played, 0.5), 1),
+            "p75_m": round(percentile(played, 0.75), 1),
+            "max_m": round(max(played), 1),
+            "mishits": len(distances) - len(played),
+        })
+    return records
+
+
+def club_compare(bundles: list[dict], periods: tuple[tuple[date, date], ...],
+                 min_holes: int, min_meters: float, min_shots: int,
+                 keep_excluded: bool = False) -> tuple[list[dict], list[str]]:
+    """Two windows side by side, one row per club and shot kind.
+
+    Returns (records, lines_to_print). A club the player hit in only one window
+    is still a row, with `None` on the other side: pretending it does not exist
+    would hide exactly the change a comparison is looking for. A delta is
+    withheld, not computed, when either side has fewer than `min_shots` usable
+    shots, and each side's n is in the row so the caller can see why.
+    """
+    titles = [f"{period[0]}..{period[1]}" for period in periods]
+    lines = []
+    sides: list[dict[tuple[str, str], dict]] = []
+    for period in periods:
+        window = [bundle for bundle in bundles if in_period(bundle, period)]
+        selection = select(window, min_holes, keep_excluded=keep_excluded)
+        lines.append(f"{period[0]} .. {period[1]}: {selection.describe()}")
+        sides.append({(record["club"], record["shot_kind"]): record
+                      for record in club_profile(selection.kept, min_meters)})
+
+    left, right = sides
+    keys = sorted(set(left) | set(right), key=lambda key: (-(right.get(key) or left[key])["median_m"], key))
+    records = []
+    for club, kind in keys:
+        first, second = left.get((club, kind)), right.get((club, kind))
+        first_median = first["median_m"] if first else None
+        second_median = second["median_m"] if second else None
+        thin = (first is None or second is None
+                or first["n"] < min_shots or second["n"] < min_shots)
+        records.append({
+            "club": club,
+            "shot_kind": kind,
+            "n_a": first["n"] if first else 0,
+            "median_a_m": first_median,
+            "n_b": second["n"] if second else 0,
+            "median_b_m": second_median,
+            "delta_m": None if thin else round(second_median - first_median, 1),
+            "low_confidence": thin,
+        })
+
+    if not records:
+        return records, lines
+
+    title_a, title_b = (title[:16] for title in titles)
+    lines.append("")
+    lines.append(f"{'club':22} {'shot':12} {'n a':>4} {'med a':>6} {'n b':>4} {'med b':>6} {'delta':>7}")
+    lines.append("-" * 66)
+    for record in records:
+        flag = "  (low n)" if record["low_confidence"] else ""
+        lines.append(
+            f"{record['club'][:22]:22} {record['shot_kind'][:12]:12} "
+            f"{record['n_a']:4d} {_value(record['median_a_m'], 0):>6} "
+            f"{record['n_b']:4d} {_value(record['median_b_m'], 0):>6} "
+            f"{_signed(record['delta_m'], 1) if record['delta_m'] is not None else '-':>7}{flag}"
+        )
+    lines.append("")
+    lines.append(f"Distances are {DISTANCE_LABEL}. A delta needs at least "
+                 f"{min_shots} usable shots on each side; it is withheld, not guessed.")
+    return records, lines
+
+
 def _signed(value: float | None, decimals: int = 2) -> str:
     if value is None:
         return "     -"
@@ -134,6 +230,55 @@ def _delta(before: float | None, after: float | None) -> float | None:
     if before is None or after is None:
         return None
     return after - before
+
+
+def player_records(bundles: list[dict], periods: tuple[tuple[date, date], ...],
+                   min_holes: int, keep_excluded: bool = False,
+                   min_sample: int = DEFAULT_MIN_SAMPLE) -> list[dict] | None:
+    """One record per metric, both windows and the signed delta, or None if empty.
+
+    Same figures `compare()` prints, so `--json` and the table can never drift
+    apart. `delta` is None when either side lacks the measurement or when a
+    window is too thin to carry a difference at all.
+    """
+    sides: list[dict] = []
+    for period in periods:
+        window = [bundle for bundle in bundles if in_period(bundle, period)]
+        sides.append(profile(select(window, min_holes, keep_excluded=keep_excluded).kept))
+    if not all(side["rounds"] for side in sides):
+        return None
+
+    left, right = sides
+    thin = left["rounds"] < min_sample or right["rounds"] < min_sample
+    title_a, title_b = (f"{period[0]}..{period[1]}" for period in periods)
+    records = [
+        {"metric": "rounds", "a": left["rounds"], "b": right["rounds"], "delta": None},
+        {"metric": "holes_played", "a": left["holes"], "b": right["holes"], "delta": None},
+    ]
+    for metric, key, decimals in (
+        ("strokes_per_hole", "strokes_per_hole", 2),
+        ("over_par_per_hole", "to_par_per_hole", 2),
+        ("net_to_par_per_hole", "net_per_hole", 2),
+        ("blowup_holes_percent", "blowup_rate", 1),
+        ("penalties_per_round", "penalties_per_round", 2),
+        ("three_putts_percent", "putt_rate_3", 1),
+    ):
+        first, second = left.get(key), right.get(key)
+        records.append({
+            "metric": metric,
+            "a": first,
+            "b": second,
+            "delta": None if thin else _round(_delta(first, second), decimals),
+        })
+    for record in records:
+        record["period_a"] = title_a
+        record["period_b"] = title_b
+        record["low_confidence"] = thin
+    return records
+
+
+def _round(value: float | None, decimals: int) -> float | None:
+    return None if value is None else round(value, decimals)
 
 
 def compare(bundles: list[dict], periods: tuple[tuple[date, date], ...],
@@ -204,6 +349,17 @@ def main(argv: list[str] | None = None) -> int:
                              f"(default: {DEFAULT_MIN_SAMPLE})")
     parser.add_argument("--keep-excluded", action="store_true",
                         help="also use rounds Garmin flagged excludeFromStats")
+    parser.add_argument("--by", choices=("player", "club"), default="player",
+                        help="what to compare: the player's per-hole scoring or each club's "
+                             "distances (default: player)")
+    parser.add_argument("--min-shots", type=int, default=DEFAULT_MIN_SHOTS,
+                        help=f"with --by club, withhold a distance delta under this many usable "
+                             f"shots on either side (default: {DEFAULT_MIN_SHOTS})")
+    parser.add_argument("--min-meters", type=float, default=0.0,
+                        help="with --by club, drop shots below this total distance (default: none)")
+    parser.add_argument("--format", choices=("text", "json", "csv"), default="text",
+                        help="text for a person, json or csv for anything that will outlive the "
+                             "glance (default: text); json/csv go to stdout alone")
     args = parser.parse_args(argv)
 
     if not os.path.isdir(args.directory):
@@ -221,6 +377,33 @@ def main(argv: list[str] | None = None) -> int:
     if not bundles:
         print(f"no round_*.json in {args.directory}", file=sys.stderr)
         return 1
+
+    if args.by == "club" and args.format != "text":
+        records, _ = club_compare(bundles, periods, args.min_holes, args.min_meters,
+                                  args.min_shots, keep_excluded=args.keep_excluded)
+        if not records:
+            print("no tracked shot in either window", file=sys.stderr)
+            return 1
+        output.write(records, args.format)
+        return 0
+    if args.by == "club":
+        records, lines = club_compare(bundles, periods, args.min_holes, args.min_meters,
+                                      args.min_shots, keep_excluded=args.keep_excluded)
+        for line in lines:
+            print(line)
+        if not records:
+            print("no tracked shot in either window", file=sys.stderr)
+            return 1
+        return 0
+
+    records = player_records(bundles, periods, args.min_holes,
+                             keep_excluded=args.keep_excluded, min_sample=args.min_sample)
+    if records is None:
+        print("nothing to compare in one of the two windows", file=sys.stderr)
+        return 1
+    if args.format != "text":
+        output.write(records, args.format)
+        return 0
     return compare(bundles, periods, args.min_holes, keep_excluded=args.keep_excluded,
                    min_sample=args.min_sample)
 

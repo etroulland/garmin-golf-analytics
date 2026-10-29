@@ -33,6 +33,7 @@ from statistics import median
 from .hole_sync import coverage
 from .rounds_common import load_bundles, played_holes, select
 from .scoring import format_relative, hole_pars, net_score, played_par, relative_score
+from . import output
 
 DEFAULT_MIN_HOLES = 9
 BLOWUP_STROKES = 7
@@ -66,6 +67,38 @@ def putt_status(bundle: dict, holes: list[dict]) -> tuple[list[int] | None, str]
     if putts is None:
         return None, "no putt data (sensor off, no entry)"
     return putts, ("sensor" if measured else "manual entry, sensor off")
+
+
+def round_records(bundles: list[dict], min_holes: int, keep_excluded: bool = False) -> list[dict]:
+    """One record per kept round, the same figures `summarise()` prints per line.
+
+    A consumer that wants a trend needs the rounds, not their medians: the
+    median of a median cannot be undone afterwards.
+    """
+    selection = select(bundles, min_holes, keep_excluded=keep_excluded)
+    records = []
+    for bundle in selection.kept:
+        holes = played_holes(bundle)
+        if not holes:
+            continue
+        putts, putt_label = putt_status(bundle, holes)
+        tracked = coverage(bundle)
+        strokes = [h["strokes"] for h in holes]
+        records.append({
+            "played_on": bundle["scorecard"]["startTime"][:10],
+            "holes": len(holes),
+            "strokes": bundle["scorecard"].get("strokes"),
+            "par": played_par(bundle),
+            "to_par": relative_score(bundle),
+            "net_to_par": net_score(bundle),
+            "best_hole": min(strokes),
+            "worst_hole": max(strokes),
+            "penalties": sum(h.get("penalties") or 0 for h in holes),
+            "putts": sum(putts) if putts else None,
+            "putt_source": putt_label,
+            "untracked_strokes": tracked[2],
+        })
+    return records
 
 
 def summarise(bundles: list[dict], min_holes: int, keep_excluded: bool = False) -> None:
@@ -150,6 +183,9 @@ def main(argv: list[str] | None = None) -> int:
                         help=f"drop rounds with fewer played holes (default: {DEFAULT_MIN_HOLES})")
     parser.add_argument("--keep-excluded", action="store_true",
                         help="also use rounds Garmin flagged excludeFromStats")
+    parser.add_argument("--format", choices=("text", "json", "csv"), default="text",
+                        help="text for a person, json or csv for anything that will outlive the "
+                             "glance (default: text); json/csv go to stdout alone")
     args = parser.parse_args(argv)
 
     if not os.path.isdir(args.directory):
@@ -159,6 +195,13 @@ def main(argv: list[str] | None = None) -> int:
     if not bundles:
         print(f"no round_*.json in {args.directory}", file=sys.stderr)
         return 1
+    if args.format != "text":
+        records = round_records(bundles, args.min_holes, keep_excluded=args.keep_excluded)
+        if not records:
+            print("no usable round", file=sys.stderr)
+            return 1
+        output.write(records, args.format)
+        return 0
     summarise(bundles, args.min_holes, keep_excluded=args.keep_excluded)
     return 0
 

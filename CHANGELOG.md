@@ -6,6 +6,26 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.0.13] - 2026-10-29
+
+### Added
+
+- `gga-compare --by club`: the same two windows, compared on distances. One row
+  per club and shot kind with each window's median and the gap between them. A
+  club hit in only one window stays a row (a new club in the bag is the change
+  worth seeing), and a delta under `--min-shots` usable shots per side is
+  withheld rather than computed from two swings.
+- `--format json` and `--format csv` on `gga-rounds`, `gga-clubs` and
+  `gga-compare`: flat, self-describing records with units in the key name and the
+  period on every row. Unmeasured values stay `null`; a withheld delta is `null`
+  with `low_confidence: true`. stdout carries the records alone, so they pipe
+  into `jq` without scraping padded columns.
+
+### Changed
+
+- The club mishit floor lives in one function (`split_mishits`), read by both the
+  printed table and the records, so the two can no longer disagree.
+
 ## [0.0.12] - 2026-10-29
 
 ### Added

@@ -30,6 +30,7 @@ from collections import defaultdict
 from typing import Iterable
 
 from .rounds_common import load_bundles, played_holes, select
+from . import output
 
 LIE_ORDER = ("TeeBox", "Fairway", "Rough", "Bunker", "Green", "Recovery")
 GOOD_LIES = ("Fairway", "Green")
@@ -373,6 +374,45 @@ def report_kind_matrix(grouped: dict[tuple, list[float]], min_shots: int,
                  "no shot of that kind")
 
 
+def club_records(bundles: list[dict], min_meters: float) -> list[dict]:
+    """One record per club and lie, the same rows `report()` prints.
+
+    Kept separate from the printed table on purpose: the table applies one rule
+    (the club's own mishit floor) and this must apply the identical one, so the
+    floor lives in `split_mishits` and both read it.
+    """
+    records = []
+    for (club, lie), shots in sorted(collect(iter_shots(bundles), min_meters, None, bundle_pars(bundles)).items()):
+        played, mishits = split_mishits([distance for distance, _ in shots])
+        if not played:
+            continue
+        good = sum(1 for _, lie_out in shots if lie_out in GOOD_LIES)
+        records.append({
+            "club": club,
+            "lie": lie,
+            "n": len(played),
+            "median_m": round(percentile(played, 0.5), 1),
+            "max_m": round(max(played), 1),
+            "good_lie_percent": round(100 * good / len(shots), 1),
+            "mishits": mishits,
+        })
+    return records
+
+
+def split_mishits(distances: list[float]) -> tuple[list[float], int]:
+    """Split a club's shots into played and mishits using the club's own floor.
+
+    A wedge never plays 60 m, a driver never plays 12: the floor is relative to
+    the club's own median, capped at MISHIT_METERS. Both the table and the
+    machine-readable output go through here so they cannot disagree.
+    """
+    if not distances:
+        return [], 0
+    floor = min(MISHIT_METERS, percentile(distances, 0.5) * 0.5)
+    played = [distance for distance in distances if distance >= floor]
+    return played, len(distances) - len(played)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("directory", nargs="?", default="rounds", help="directory of round_*.json (default: rounds)")
@@ -394,6 +434,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="what the --matrix columns mean: a lie or a shot kind (default: lie)")
     parser.add_argument("--keep-excluded", action="store_true",
                         help="also use rounds Garmin flagged excludeFromStats")
+    parser.add_argument("--format", choices=("text", "json", "csv"), default="text",
+                        help="text for a person, json or csv for anything that will outlive the "
+                             "glance (default: text); json/csv go to stdout alone")
     args = parser.parse_args(argv)
 
     if not os.path.isdir(args.directory):
@@ -408,6 +451,13 @@ def main(argv: list[str] | None = None) -> int:
     # Same round selection as round_report.py: one sample, one set of rules.
     selection = select(bundles, args.min_holes, keep_excluded=args.keep_excluded)
     kept = [b for b in selection.kept if played_holes(b)]
+    if args.format != "text":
+        records = club_records(kept, args.min_meters)
+        if not records:
+            print("no shot above the distance floor", file=sys.stderr)
+            return 1
+        output.write(records, args.format)
+        return 0
     shots = list(iter_shots(kept))
     pars = bundle_pars(kept)
     print(f"{selection.describe()}, {len(shots)} tracked shots, distances are {DISTANCE_LABEL}")
