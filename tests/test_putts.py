@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from conftest import bundle, hole
-from round_report import putt_status, putts_are_measured, usable_putts
+from garmin_golf_analytics.round_report import putt_status, putts_are_measured, usable_putts
 
 
 def holes(*putts):

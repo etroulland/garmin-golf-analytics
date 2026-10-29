@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from conftest import bundle, hole, shot
-from hole_sync import coverage, hole_discrepancy, hole_shots, non_putt_count
+from garmin_golf_analytics.hole_sync import coverage, hole_discrepancy, hole_shots, non_putt_count
 
 
 def test_hole_shots_normalises_keys_to_int():

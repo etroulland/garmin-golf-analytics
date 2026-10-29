@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "garmin-golf-analytics"
+dynamic = ["version"]
+description = "Turn Garmin Connect golf rounds into per-club distances and a score debrief that isn't fooled by Garmin's defaults."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Etienne Troulland" }]
+keywords = ["garmin", "golf", "garmin-connect", "sports-analytics"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: End Users/Desktop",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Games/Entertainment",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+]
+dependencies = ["garminconnect>=0.2.19,<0.3"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-cov>=5"]
+
+[project.urls]
+Homepage = "https://github.com/etroulland/garmin-golf-analytics"
+Changelog = "https://github.com/etroulland/garmin-golf-analytics/blob/master/CHANGELOG.md"
+
+[project.scripts]
+gga = "garmin_golf_analytics.cli:main"
+gga-fetch = "garmin_golf_analytics.garmin_golf_fetch:main"
+gga-clubs = "garmin_golf_analytics.club_report:main"
+gga-rounds = "garmin_golf_analytics.round_report:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "garmin_golf_analytics.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["garmin_golf_analytics"]
+
+[tool.coverage.report]
+fail_under = 90
