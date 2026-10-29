@@ -13,4 +13,14 @@ Golf-*.json
 
 # Test artefacts
 .coverage
+.coverage.*
+htmlcov/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Packaging
+build/
+dist/
+*.egg-info/
+*.whl

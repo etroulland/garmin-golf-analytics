@@ -1,7 +1,7 @@
 """round_report.py: the aggregate, the drop reasons, and the putt labelling."""
 from __future__ import annotations
 
-import round_report
+import garmin_golf_analytics.round_report as round_report
 from conftest import bundle, hole
 
 

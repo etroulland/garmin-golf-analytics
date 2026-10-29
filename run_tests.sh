@@ -1,7 +1,5 @@
 #!/bin/sh
-# Tests + coverage gate. Needs: pip install -r requirements-dev.txt
+# Tests + coverage gate. Needs: pip install -e '.[dev]'
 set -e
 PYTHON=${PYTHON:-python3}
-"$PYTHON" -m pytest tests \
-  --cov=club_report --cov=garmin_golf_fetch --cov=round_report --cov=rounds_common --cov=hole_sync --cov=scoring \
-  --cov-report=term-missing --cov-fail-under=90
+"$PYTHON" -m pytest --cov --cov-report=term-missing

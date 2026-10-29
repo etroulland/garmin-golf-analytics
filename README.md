@@ -32,9 +32,16 @@ The Garmin golf data looks clean and isn't. Things that silently corrupt a naive
 ## Install
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install garminconnect
+pipx install garmin-golf-analytics
+```
+
+Or from a clone, with the test suite:
+
+```bash
+git clone https://github.com/etroulland/garmin-golf-analytics
+cd garmin-golf-analytics
+python -m venv .venv && source .venv/bin/activate
+pip install -e '.[dev]'
 ```
 
 Log in once. `garminconnect` writes a token store, so no credentials ever live in this repo:
@@ -48,10 +55,13 @@ python -c "from garminconnect import Garmin; Garmin().login()"
 
 ```bash
 export GARMINTOKENS=~/.garminconnect
-python garmin_golf_fetch.py                 # latest round only
-python garmin_golf_fetch.py --days 30       # every round played in the window
-python garmin_golf_fetch.py --scid 383676990
+gga-fetch                 # latest round only
+gga-fetch --days 30       # every round played in the window
+gga-fetch --scid 383676990
 ```
+
+The same commands are available as subcommands of a single `gga` dispatcher:
+`gga fetch`, `gga clubs`, `gga rounds`.
 
 Each round becomes `rounds/round_<YYYY-MM-DD>_<scid>.json`:
 
@@ -78,9 +88,9 @@ distance report rather than shown as `clubId:<n>`, which no one can act on.
 ## Club distances
 
 ```bash
-python club_report.py rounds/
-python club_report.py rounds/ --lie TeeBox      # first shot of a hole (see caveat below)
-python club_report.py rounds/ --min-meters 40   # raise the floor to drop chips
+gga-clubs rounds/
+gga-clubs rounds/ --lie TeeBox      # first shot of a hole (see caveat below)
+gga-clubs rounds/ --min-meters 40   # raise the floor to drop chips
 ```
 
 Median, p75, p90 and max per club **per lie**, because that is how the numbers are actually usable
@@ -97,7 +107,7 @@ anything under 5 shots as noise and never let one low-n club outrank a measured 
 ## Round debrief
 
 ```bash
-python round_report.py rounds/
+gga-rounds rounds/
 ```
 
 Strokes per hole distribution, blow-up rate, penalties per round, and three-putt rate. Rounds with
@@ -107,10 +117,26 @@ abandoned before anything is averaged.
 ## Layout
 
 ```
-garmin_golf_fetch.py   fetch rounds from the Garmin API
-club_report.py         distance tables per club, split by lie
-round_report.py        score, penalties, blow-up holes, putting
+src/garmin_golf_analytics/
+  garmin_golf_fetch.py  fetch rounds from the Garmin API
+  club_report.py        distance tables per club, split by lie
+  round_report.py       score, penalties, blow-up holes, putting
+  rounds_common.py      which rounds count, shared by both reports
+  scoring.py            per-hole par and relative score
+  hole_sync.py          tracked shots vs scorecard reconciliation
+  cli.py                the `gga` dispatcher
+tests/                  125 tests, 97% coverage
 ```
+
+## Development
+
+```bash
+pip install -e '.[dev]'
+./run_tests.sh        # pytest + coverage gate at 90%
+```
+
+CI runs the suite on Python 3.10 to 3.13 and checks that every console script
+resolves (`.github/workflows/tests.yml`).
 
 ## License
 

@@ -29,9 +29,9 @@ import sys
 from collections import Counter
 from statistics import median
 
-from hole_sync import coverage
-from rounds_common import load_bundles, played_holes, select
-from scoring import format_relative, hole_pars, net_score, played_par, relative_score
+from .hole_sync import coverage
+from .rounds_common import load_bundles, played_holes, select
+from .scoring import format_relative, hole_pars, net_score, played_par, relative_score
 
 DEFAULT_MIN_HOLES = 9
 BLOWUP_STROKES = 7

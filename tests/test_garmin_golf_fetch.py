@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-import garmin_golf_fetch as fetch
+import garmin_golf_analytics.garmin_golf_fetch as fetch
 from conftest import shot
 
 
@@ -208,11 +208,13 @@ def test_missing_garminconnect_exits_at_import(tmp_path):
 
     blocker = tmp_path / "garminconnect.py"
     blocker.write_text("raise ImportError('simulated missing library')\n")
-    repo = str(__import__("pathlib").Path(__file__).resolve().parent.parent)
+    # An installed package would win over the blocker on sys.path, so shadow it
+    # by pointing PYTHONPATH at the blocker only and importing from anywhere but
+    # the repo root: the module must be found through the package name.
     result = subprocess.run(
-        [sys.executable, "-c", "import garmin_golf_fetch"],
-        cwd=repo, capture_output=True, text=True,
-        env={"PYTHONPATH": f"{tmp_path}:{repo}", "PATH": "/usr/bin:/bin"},
+        [sys.executable, "-c", "from garmin_golf_analytics import garmin_golf_fetch"],
+        cwd=str(tmp_path), capture_output=True, text=True,
+        env={"PYTHONPATH": str(tmp_path), "PATH": "/usr/bin:/bin"},
     )
     assert "garminconnect is missing: pip install garminconnect" in result.stdout + result.stderr
 

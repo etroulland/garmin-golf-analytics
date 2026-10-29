@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-import club_report
+import garmin_golf_analytics.club_report as club_report
 from conftest import bundle, hole, shot
 
 
