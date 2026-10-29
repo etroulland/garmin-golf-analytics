@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from conftest import bundle, hole
-from scoring import (format_relative, handicap_strokes, hole_pars, net_score,
+from garmin_golf_analytics.scoring import (format_relative, handicap_strokes, hole_pars, net_score,
                      played_par, relative_score)
 
 GRAVES = "443454345543435435"  # 18 holes, par 72

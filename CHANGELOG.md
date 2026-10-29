@@ -8,6 +8,25 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- Installable package: `pyproject.toml` (PEP 621, setuptools, `src/` layout),
+  console scripts `gga`, `gga-fetch`, `gga-clubs`, `gga-rounds`, and a `gga`
+  dispatcher (`gga fetch|clubs|rounds`). `pipx install garmin-golf-analytics`
+  is now the supported install path; cloning is for development.
+- CI (`.github/workflows/tests.yml`): pytest and the 90 % coverage gate on
+  Python 3.10 to 3.13, plus a check that every console script resolves.
+- `tests/test_cli.py`: the dispatcher's help, unknown-command and argv
+  forwarding paths.
+
+### Changed
+
+- The six modules moved from the repo root to `src/garmin_golf_analytics/`.
+  Intra-package imports are now relative; nothing imports `garminconnect`
+  unless `gga fetch` runs, so `gga clubs` and `gga rounds` work without it.
+- `garminconnect` is a declared dependency pinned to `>=0.2.19,<0.3` instead of
+  an unpinned manual install.
+- pytest and coverage settings moved from `pytest.ini` into `pyproject.toml`.
+  `run_tests.sh` relies on that config instead of repeating the file list.
+
 - Putter approaches get their own row. A putt played from the fairway, the rough
   or a bunker and stopping on the green is reported as `Putter (approach)`; a
   putt played from the green is still dropped as short game. Garmin tags both

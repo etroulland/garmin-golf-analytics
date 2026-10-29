@@ -5,9 +5,9 @@ import json
 
 import pytest
 
-import rounds_common
+import garmin_golf_analytics.rounds_common as rounds_common
 from conftest import bundle, hole
-from rounds_common import load_bundles, played_holes, select, short_reason
+from garmin_golf_analytics.rounds_common import load_bundles, played_holes, select, short_reason
 
 
 def test_played_holes_ignores_padded_holes():

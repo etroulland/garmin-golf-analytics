@@ -28,7 +28,7 @@ import sys
 from collections import defaultdict
 from typing import Iterable
 
-from rounds_common import load_bundles, played_holes, select
+from .rounds_common import load_bundles, played_holes, select
 
 LIE_ORDER = ("TeeBox", "Fairway", "Rough", "Bunker", "Green", "Recovery")
 GOOD_LIES = ("Fairway", "Green")
