@@ -6,14 +6,22 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.0.10] - 2026-10-29
+
+### Fixed
+
+- `garminconnect` floor raised to 0.3.20. Dropping the `<0.3` cap in 0.0.9 was
+  half the fix: pip then installed 0.2.40, which cannot read a token store
+  written by 0.3 and dies on `oauth1_token.json`. 0.3.20 logs in and fetches.
+  `gga-fetch` is now verified end to end against the real Garmin account.
+
 ## [0.0.9] - 2026-10-29
 
 ### Fixed
 
 - The `garminconnect<0.3` pin was wrong: 0.3.x logs in and fetches fine, and the
   pin forced pip to install an old release that could not read the token store
-  written by 0.3 (`FileNotFoundError: oauth1_token.json`). The floor stays at
-  0.2.19, with no upper bound.
+  written by 0.3 (`FileNotFoundError: oauth1_token.json`).
 
 ## [0.0.8] - 2026-10-29
 
