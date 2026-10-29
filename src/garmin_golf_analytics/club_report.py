@@ -291,6 +291,46 @@ def report_by_kind(grouped: dict[tuple, list[float]], min_shots: int) -> None:
             )
 
 
+def report_matrix(grouped: dict[tuple, list[tuple[float, str]]], min_shots: int, lies: tuple[str, ...]) -> None:
+    """One table: clubs as rows, lies as columns, the median distance in each cell.
+
+    Reading a club across a row is the question actually asked on the course:
+    does the 7-iron still go the same distance off the rough as off the fairway?
+    A cell shows the median and its sample size, `-` when nothing was tracked
+    there. Cells under `min_shots` are flagged, because a median over two shots
+    is a coincidence, not a distance.
+    """
+    cells: dict[tuple[str, str], list[float]] = {}
+    for (club, lie), shots in grouped.items():
+        if lie not in lies:
+            continue
+        kept = [d for d, _ in shots]
+        if kept:
+            cells[(club, lie)] = kept
+    if not cells:
+        print("no shot in those lies", file=sys.stderr)
+        return
+
+    clubs = sorted({club for club, _ in cells},
+                   key=lambda name: -percentile(cells.get((name, lies[0]), [0.0]), 0.5))
+    total_width = 22 + 11 * len(lies)
+    print("median total distance per club and lie (m), n in parentheses")
+    print(f"\n{'club':22}" + "".join(f"{lie[:10]:>11}" for lie in lies))
+    print("-" * total_width)
+    for club in clubs:
+        row = f"{club[:22]:22}"
+        for lie in lies:
+            distances = cells.get((club, lie))
+            if not distances:
+                row += f"{'-':>11}"
+                continue
+            med = percentile(distances, 0.5)
+            flag = "*" if len(distances) < min_shots else ""
+            row += f"{f'{med:.0f} ({len(distances)}){flag}':>11}"
+        print(row)
+    print(f"\n* fewer than {min_shots} tracked shots: the median is not a distance yet")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("directory", nargs="?", default="rounds", help="directory of round_*.json (default: rounds)")
@@ -304,6 +344,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--by-shot-type", action="store_true",
                         help="split each club by what the shot was (tee, approach, chip, ...) "
                              "instead of by lie only")
+    parser.add_argument("--matrix", nargs="?", const="TeeBox,Fairway", default=None,
+                        metavar="LIES",
+                        help="one table with clubs in rows and lies in columns; "
+                             "LIES is comma-separated (default: TeeBox,Fairway)")
     parser.add_argument("--keep-excluded", action="store_true",
                         help="also use rounds Garmin flagged excludeFromStats")
     args = parser.parse_args(argv)
@@ -323,6 +367,18 @@ def main(argv: list[str] | None = None) -> int:
     shots = list(iter_shots(kept))
     pars = bundle_pars(kept)
     print(f"{selection.describe()}, {len(shots)} tracked shots, distances are {DISTANCE_LABEL}")
+    if args.matrix:
+        lies = tuple(name.strip() for name in args.matrix.split(",") if name.strip())
+        unknown = [name for name in lies if name not in LIE_ORDER]
+        if unknown:
+            print(f"unknown lie(s): {', '.join(unknown)}; known: {', '.join(LIE_ORDER)}", file=sys.stderr)
+            return 2
+        grouped = collect(shots, args.min_meters, None, pars)
+        if not grouped:
+            print("no shot above the distance floor", file=sys.stderr)
+            return 1
+        report_matrix(grouped, args.min_shots, lies)
+        return 0
     if args.by_shot_type:
         by_kind = collect_by_kind(shots, args.min_meters, pars)
         if not by_kind:

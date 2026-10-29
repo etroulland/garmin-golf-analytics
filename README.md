@@ -97,6 +97,8 @@ gga-clubs rounds/
 gga-clubs rounds/ --lie TeeBox        # shots played from the tee box, whatever the club
 gga-clubs rounds/ --min-meters 40     # raise the floor to drop chips
 gga-clubs rounds/ --by-shot-type      # one row per (club, shot kind)
+gga-clubs rounds/ --matrix            # clubs x lies table, TeeBox and Fairway
+gga-clubs rounds/ --matrix TeeBox,Fairway,Rough,Bunker
 ```
 
 Median, p75, p90 and max per club **per lie**, because that is how the numbers are actually usable

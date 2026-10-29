@@ -6,6 +6,16 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.0.7] - 2026-10-29
+
+### Added
+
+- `gga-clubs --matrix`: one table with clubs in rows and lies in columns, the
+  median distance in each cell with its sample size, `-` where nothing was
+  tracked and a `*` under the sample threshold. `LIES` is comma-separated and
+  defaults to `TeeBox,Fairway`; an unknown lie name is refused with exit 2
+  rather than silently printing an empty column.
+
 ## [0.0.6] - 2026-10-29
 
 ### Fixed
