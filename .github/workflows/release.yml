@@ -58,3 +58,47 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    # Only after PyPI accepted the version: a release page that points at a
+    # version nobody can pip install is worse than no release page at all.
+    needs: [build, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dists
+          path: dist/
+
+      - name: Extract this version's CHANGELOG section
+        run: |
+          python - "$GITHUB_REF_NAME" <<'PY'
+          import re, sys
+          from pathlib import Path
+
+          version = sys.argv[1].lstrip("v")
+          text = Path("CHANGELOG.md").read_text(encoding="utf-8")
+          # The headed block for this exact version, up to the next "## [" heading.
+          match = re.search(
+              rf"^## \[{re.escape(version)}\].*?$(.*?)(?=^## \[|\Z)",
+              text, re.MULTILINE | re.DOTALL,
+          )
+          body = match.group(1).strip() if match else ""
+          if not body:
+              body = f"See [CHANGELOG.md](CHANGELOG.md) for the full history."
+          body += f"\n\n`pip install garmin-golf-analytics=={version}`"
+          Path("release-notes.md").write_text(body, encoding="utf-8")
+          PY
+
+      - name: Create the GitHub release with the built artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file release-notes.md \
+            dist/*
