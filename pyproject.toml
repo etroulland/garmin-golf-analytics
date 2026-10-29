@@ -7,7 +7,7 @@ name = "garmin-golf-analytics"
 dynamic = ["version"]
 description = "Turn Garmin Connect golf rounds into per-club distances and a score debrief that isn't fooled by Garmin's defaults."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Etienne Troulland" }]
@@ -17,8 +17,6 @@ classifiers = [
   "Environment :: Console",
   "Intended Audience :: End Users/Desktop",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Topic :: Games/Entertainment",

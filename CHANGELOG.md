@@ -6,6 +6,15 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.0.11] - 2026-10-29
+
+### Changed
+
+- Python floor raised to 3.12, matching the requirement actually imposed by
+  `garminconnect>=0.3.20` (every 0.3.x release declares `Requires-Python >=3.12`).
+  0.0.10 broke `pip install` on Python 3.10 and 3.11 while claiming to support
+  them. The CI matrix now runs 3.12, 3.13 and 3.14 instead of 3.10-3.13.
+
 ## [0.0.10] - 2026-10-29
 
 ### Fixed

@@ -151,7 +151,7 @@ pip install -e '.[dev]'
 ./run_tests.sh        # pytest + coverage gate at 90%
 ```
 
-CI runs the suite on Python 3.10 to 3.13 and checks that every console script
+CI runs the suite on Python 3.12 to 3.14 and checks that every console script
 resolves (`.github/workflows/tests.yml`).
 
 ## License
