@@ -6,6 +6,40 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.0.14] - 2026-10-29
+
+### Added
+
+- `gga-tee`: which club keeps your tee shot in play. Garmin's per-hole
+  `fairwayShotOutcome` is joined to the club that hit the drive, giving hits,
+  misses left, misses right and an in-play rate per club. A hole without a
+  recorded outcome counts as `unknown` and stays out of the percentage: not
+  knowing is not a hit. Only the first TEE shot of a hole counts, so a hole
+  cannot contribute its outcome twice.
+- `gga-courses`: the same rounds split by course, per hole and per round, with
+  best/worst round, blow-up rate and putts per hole. Courses played fewer than
+  `--min-rounds` times are marked; a bundle with no course name stays in the
+  report as "Unknown course" instead of disappearing from it.
+- Both commands take `--format json|csv` and are wired into the `gga` dispatcher.
+- `gga-spread`: dispersion per club and shot kind. The p25..p75 band, standard
+  deviation, `cv%` (standard deviation over the median) and the share of shots
+  under 80 % of the median. Two clubs with the same median stop looking
+  identical, and the band is what tells a club you can count on from one you are
+  guessing with. Mishits stay out of the spread, like everywhere else.
+
+### Fixed
+
+- `gga-clubs` had its hole floor hard-coded at 9 while the other two reports
+  read `DEFAULT_MIN_HOLES`. All three now share the constant, so `--min-holes`
+  means the same thing everywhere and a change to the default lands once.
+
+### Added
+
+- Tests for `--min-holes` on every report: the default, a lowered floor that
+  brings short rounds back, a raised one that drops a 9-hole round, the
+  propagation to `gga-clubs` and both `gga-compare` modes, and a non-numeric
+  value being rejected with exit 2.
+
 ## [0.0.13] - 2026-10-29
 
 ### Added

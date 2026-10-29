@@ -29,6 +29,7 @@ import sys
 from collections import defaultdict
 from typing import Iterable
 
+from .round_report import DEFAULT_MIN_HOLES
 from .rounds_common import load_bundles, played_holes, select
 from . import output
 
@@ -421,8 +422,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="drop shots below this total distance (default: no floor)")
     parser.add_argument("--min-shots", type=int, default=DEFAULT_MIN_SHOTS,
                         help=f"flag clubs under this sample size (default: {DEFAULT_MIN_SHOTS})")
-    parser.add_argument("--min-holes", type=int, default=9,
-                        help="drop rounds with fewer played holes (default: 9)")
+    parser.add_argument("--min-holes", type=int, default=DEFAULT_MIN_HOLES,
+                        help=f"drop rounds with fewer played holes (default: {DEFAULT_MIN_HOLES})")
     parser.add_argument("--by-shot-type", action="store_true",
                         help="split each club by what the shot was (tee, approach, chip, ...) "
                              "instead of by lie only")

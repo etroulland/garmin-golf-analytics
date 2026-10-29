@@ -154,9 +154,52 @@ A club hit in only one window is still a row, with the other side left blank: a 
 the bag is exactly the change worth seeing. A distance delta needs `--min-shots` usable shots on
 each side (default 5) and is withheld below that, never extrapolated from two swings.
 
+## Tee accuracy
+
+Distance says how far a club goes. It does not say whether the ball stays in play, and that is the
+question a tee shot answers. Garmin records the drive's outcome per hole, so the two are joined
+without modelling anything.
+
+```bash
+gga-tee rounds/
+```
+
+One row per club used off the tee: hits, misses left, misses right, and the share that stayed in
+play. A hole Garmin left without an outcome is counted as `unknown` and excluded from the
+percentage, never assumed a hit or a miss. A club with few recorded outcomes is flagged rather than
+ranked.
+
+## How repeatable each club is
+
+The median is a promise the shots do not always keep. Two players with a 170 m driver do not play
+the same game if one hits 168 to 172 and the other alternates 140 and 200.
+
+```bash
+gga-spread rounds/
+```
+
+Per club and shot kind: the p25..p75 band (half the shots land inside it), the standard deviation,
+`cv%` (standard deviation over the median, so a wedge and a driver can be compared) and `short%`,
+the shots under 80 % of the median. A shrinking band is a club you can count on; a growing one is a
+club you are guessing with, whatever its median says. Mishits stay out of the spread, as everywhere
+else.
+
+## One row per course
+
+A single figure averages courses that have nothing in common. The same rounds, split by course:
+
+```bash
+gga-courses rounds/
+```
+
+Per hole and per round, so a course played once sits next to one played twenty times; the ones
+played fewer than `--min-rounds` times are marked. Putts per hole only count the rounds Garmin
+actually measured.
+
 ## Machine-readable output
 
-`gga-rounds`, `gga-clubs` and `gga-compare` take `--format json` or `--format csv`. Both write
+`gga-rounds`, `gga-clubs`, `gga-compare`, `gga-tee`, `gga-courses` and `gga-spread` take
+`--format json` or `--format csv`. Both write
 records and nothing else on stdout, so they pipe into `jq` or a spreadsheet without scraping padded
 columns.
 
@@ -179,6 +222,9 @@ src/garmin_golf_analytics/
   round_report.py       score, penalties, blow-up holes, putting
   compare_report.py     two date windows, per-hole or per-club figures and their delta
   output.py             --format json/csv records shared by every report
+  tee_report.py         which club keeps the tee shot in play
+  course_report.py      the same rounds, one row per course
+  spread_report.py      dispersion per club: band, standard deviation, short shots
   rounds_common.py      which rounds count, shared by every report
   scoring.py            per-hole par and relative score
   hole_sync.py          tracked shots vs scorecard reconciliation

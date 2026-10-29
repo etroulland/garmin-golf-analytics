@@ -8,7 +8,7 @@ from garmin_golf_analytics import cli
 
 def test_help_without_arguments_returns_error(capsys):
     assert cli.main([]) == 2
-    assert "usage: cli {fetch,clubs,rounds,compare}" in capsys.readouterr().out
+    assert "usage: cli {fetch,clubs,rounds,compare,tee,courses,spread}" in capsys.readouterr().out
 
 
 def test_explicit_help_returns_success(capsys):
