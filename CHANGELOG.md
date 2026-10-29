@@ -6,6 +6,8 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.0.5] - 2026-10-29
+
 ### Fixed
 
 - `UNKNOWN` shots are no longer dropped. Garmin leaves a large share of tracked
