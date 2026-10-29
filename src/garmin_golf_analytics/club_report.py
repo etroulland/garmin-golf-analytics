@@ -38,10 +38,41 @@ GOOD_LIES = ("Fairway", "Green")
 PUTTER = "Putter"
 # A shot this short is a top, a duff or a mis-hit: it never describes the club.
 MISHIT_METERS = 60
+# A shot starting this close to the green and finishing on it is a chip, not an
+# approach, whatever Garmin called it: 14 of the Gap Wedge's UNKNOWN shots ran
+# 10 to 45 m from the fringe onto the green. Below this distance the club is not
+# being used to fly the ball to the green, it is being used around it.
+CHIP_RANGE_METERS = 50
 # No distance floor by default: a floor applied to every club silently deletes
 # the wedges from their own table, and mishits are already counted separately.
 DEFAULT_MIN_METERS = 0.0
 DEFAULT_MIN_SHOTS = 5
+
+# Garmin labels a shot TEE, APPROACH, CHIP, LAYUP, PUTT or UNKNOWN. UNKNOWN is
+# Garmin having no idea, not a shot type of its own: it is a large share of the
+# tracked shots and dropping it silently shrank every sample. Only the putts are
+# refused here; everything else is kept and labelled with what the lie and the
+# shot's position in the hole actually say it was.
+SHOT_TYPE_LABELS = {
+    "TEE": "Tee",
+    "APPROACH": "Approach",
+    "CHIP": "Chip",
+    "LAYUP": "Layup",
+    "PITCH": "Pitch",
+    "RECOVERY": "Recovery",
+}
+UNKNOWN_LABEL = "Unclassified"
+# Garmin puts `lie == "TeeBox"` on the FIRST shot of a hole, whatever club was
+# hit. A par 4 opened with a 7-iron is tagged TeeBox, so the lie alone cannot
+# decide whether an UNKNOWN shot was a tee shot. The hole's par came from the
+# course snapshot: a par 4 or 5 opened on TeeBox with a club short of a driver
+# is the player laying up, not driving.
+PAR_THAT_ALLOWS_A_LAYUP = (4, 5)
+LONG_CLUBS = ("Driver", "1 Wood", "3 Wood", "2 Wood", "4 Wood")
+LAYUP_ON_TEE = "Layup (tee)"
+SHORT_GAME_SHOT_TYPES = ("CHIP", "PITCH", "RECOVERY")
+MISHIT_LABEL = "Mishit"
+
 
 # Garmin only stores a single "meters" value per shot: the GPS distance from the
 # start point to the end point, roll included. There is no carry in the data, so
@@ -62,12 +93,77 @@ def percentile(values: list[float], fraction: float) -> float:
 
 
 def iter_shots(bundles: Iterable[dict]) -> Iterable[dict]:
+    """Flatten every shot of every bundle, carrying its hole number and the par.
+
+    `hole` is injected here because the shot kind cannot be decided without it:
+    a first shot on a par 3 is a tee shot, the same shot on a par 4 may be a
+    layup. `par` comes from the course snapshot stored in the bundle.
+    """
     for bundle in bundles:
-        for hole_shots in bundle.get("shots", {}).values():
-            yield from hole_shots
+        pars = (bundle.get("course") or {}).get("pars") or {}
+        for hole_number, hole_shots in bundle.get("shots", {}).items():
+            for shot in hole_shots:
+                enriched = dict(shot)
+                enriched.setdefault("hole", hole_number)
+                enriched.setdefault("par", pars.get(str(hole_number)))
+                yield enriched
 
 
-def collect(shots: Iterable[dict], min_meters: float, lie: str | None) -> dict[tuple, list[tuple[float, str]]]:
+def bundle_pars(bundles: Iterable[dict]) -> dict:
+    """Hole number -> par, merged across bundles (one course per key in practice)."""
+    pars: dict = {}
+    for bundle in bundles:
+        pars.update((bundle.get("course") or {}).get("pars") or {})
+    return pars
+
+
+def is_first_shot(shot: dict) -> bool:
+    """Garmin numbers the shots of a hole in play order, starting at 1."""
+    return (shot.get("shotOrder") or 1) == 1
+
+
+def shot_kind(shot: dict, club: str, hole_par: int | None) -> str:
+    """What the shot actually was, from Garmin's label and the lie.
+
+    Garmin's own `shotType` is used when it is specific. When it says UNKNOWN,
+    the lie, the shot's position in the hole and the distance decide:
+      * on the green                          -> Putt
+      * first shot of a par 4 or 5, long club -> Tee
+      * first shot of a par 4 or 5, short club -> Layup (tee)
+      * first shot of a par 3                 -> Tee
+      * finishing on the green from under CHIP_RANGE_METERS -> Chip
+      * anything else                         -> Unclassified
+    """
+    kind = shot.get("shotType")
+    shot_lie = (shot.get("startLoc") or {}).get("lie") or "Unknown"
+    end_lie = (shot.get("endLoc") or {}).get("lie") or "Unknown"
+    # The putter labels stay as they are: "Putter (approach)" is a deliberate
+    # row in the lie table, and calling those strokes "Chip" here would make the
+    # two views of the same shot disagree.
+    if club.startswith(PUTTER):
+        return "Putt"
+    if kind == "PUTT":
+        return "Putt"
+    if kind in SHORT_GAME_SHOT_TYPES:
+        # Garmin already said chip/pitch/recovery: nothing to add.
+        return SHOT_TYPE_LABELS[kind]
+    if shot_lie == "Green":
+        return "Putt"
+    if kind in SHOT_TYPE_LABELS:
+        # Garmin named it and the shot starts on the tee box: its word stands.
+        return SHOT_TYPE_LABELS[kind]
+    if shot_lie == "TeeBox" and is_first_shot(shot):
+        if hole_par in PAR_THAT_ALLOWS_A_LAYUP and club not in LONG_CLUBS:
+            return LAYUP_ON_TEE
+        return SHOT_TYPE_LABELS["TEE"]
+    meters = shot.get("meters")
+    if end_lie == "Green" and meters is not None and meters < CHIP_RANGE_METERS:
+        return SHOT_TYPE_LABELS["CHIP"]
+    return UNKNOWN_LABEL
+
+
+def collect(shots: Iterable[dict], min_meters: float, lie: str | None,
+            pars: dict | None = None) -> dict[tuple, list[tuple[float, str]]]:
     """Group shots by (club, lie) as (distance, ending lie) pairs.
 
     A putt hit ON the green is dropped: it is short-game, not a club distance.
@@ -106,6 +202,38 @@ def collect(shots: Iterable[dict], min_meters: float, lie: str | None) -> dict[t
     return grouped
 
 
+def collect_by_kind(shots: Iterable[dict], min_meters: float, pars: dict | None = None) -> dict[tuple, list[float]]:
+    """Same rules, but grouped by (club, shot kind) so the profile is visible.
+
+    A median computed over tees, approaches and chips of one club describes no
+    shot anybody plays. `pars` maps a hole number to its par; without it the
+    first shot of a par 4 cannot be told apart from a layup.
+    """
+    grouped: dict[tuple, list[float]] = defaultdict(list)
+    for shot in shots:
+        meters = shot.get("meters")
+        if not shot.get("clubId") or shot.get("excludeFromStats"):
+            continue
+        shot_lie = (shot.get("startLoc") or {}).get("lie") or "Unknown"
+        end_lie = (shot.get("endLoc") or {}).get("lie") or "Unknown"
+        club = shot.get("clubName")
+        if not club:
+            continue
+        if club == PUTTER and shot_lie == "Green":
+            continue
+        if club == PUTTER and end_lie != "Green":
+            continue
+        if meters is None or meters < min_meters:
+            continue
+        hole_par = shot.get("par")
+        if hole_par is None:
+            hole_par = (pars or {}).get(str(shot.get("hole")))
+        kind = shot_kind(shot, club, hole_par)
+        grouped[(club, kind)].append(float(meters))
+    return grouped
+
+
+
 def report(grouped: dict[tuple, list[tuple[float, str]]], min_shots: int) -> None:
     by_lie: dict[str, list[tuple[str, list[tuple[float, str]]]]] = defaultdict(list)
     for (club, lie), shots in grouped.items():
@@ -131,6 +259,37 @@ def report(grouped: dict[tuple, list[tuple[float, str]]], min_shots: int) -> Non
             )
 
 
+def report_by_kind(grouped: dict[tuple, list[float]], min_shots: int) -> None:
+    """Print the same numbers split by what the shot was, not only by the lie.
+
+    A chip and a tee shot of the same club are two different swings: averaging
+    them into one row describes neither. Rows are ordered by club so a club's
+    profile reads top to bottom.
+    """
+    by_club: dict[str, list[tuple[str, list[float]]]] = defaultdict(list)
+    for (club, kind), distances in grouped.items():
+        by_club[club].append((kind, distances))
+
+    # Order the rows the way a player thinks about a hole: off the tee, then the
+    # second shot, then the short game. Unclassified last, so the honest gap in
+    # Garmin's data is impossible to overlook.
+    ordered_kinds = ("Tee", LAYUP_ON_TEE, "Approach", "Layup", "Pitch", "Chip", "Recovery", "Putt", UNKNOWN_LABEL)
+    kind_rank = {label: index for index, label in enumerate(ordered_kinds)}
+    for club in sorted(by_club, key=lambda name: -percentile(by_club[name][0][1], 0.5)):
+        print(f"\n## {club}")
+        print(f"{'shot':20} {'n':>3} {'med':>6} {'p75':>6} {'max':>6} {'mishits':>8}   (total m)")
+        for kind, distances in sorted(by_club[club], key=lambda row: kind_rank.get(row[0], 99)):
+            floor = min(MISHIT_METERS, percentile(distances, 0.5) * 0.5)
+            played = [d for d in distances if d >= floor]
+            mishits = len(distances) - len(played)
+            flag = "  (low n)" if len(played) < min_shots else ""
+            print(
+                f"{kind[:20]:20} {len(played):3d} {percentile(played, 0.5) if played else float('nan'):6.0f} "
+                f"{percentile(played, 0.75) if played else float('nan'):6.0f} "
+                f"{max(played) if played else float('nan'):6.0f} {mishits:8d}{flag}"
+            )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("directory", nargs="?", default="rounds", help="directory of round_*.json (default: rounds)")
@@ -141,6 +300,9 @@ def main(argv: list[str] | None = None) -> int:
                         help=f"flag clubs under this sample size (default: {DEFAULT_MIN_SHOTS})")
     parser.add_argument("--min-holes", type=int, default=9,
                         help="drop rounds with fewer played holes (default: 9)")
+    parser.add_argument("--by-shot-type", action="store_true",
+                        help="split each club by what the shot was (tee, approach, chip, ...) "
+                             "instead of by lie only")
     parser.add_argument("--keep-excluded", action="store_true",
                         help="also use rounds Garmin flagged excludeFromStats")
     args = parser.parse_args(argv)
@@ -158,8 +320,23 @@ def main(argv: list[str] | None = None) -> int:
     selection = select(bundles, args.min_holes, keep_excluded=args.keep_excluded)
     kept = [b for b in selection.kept if played_holes(b)]
     shots = list(iter_shots(kept))
-    grouped = collect(shots, args.min_meters, args.lie)
+    pars = bundle_pars(kept)
     print(f"{selection.describe()}, {len(shots)} tracked shots, distances are {DISTANCE_LABEL}")
+    if args.by_shot_type:
+        by_kind = collect_by_kind(shots, args.min_meters, pars)
+        if not by_kind:
+            print("no shot above the distance floor", file=sys.stderr)
+            return 1
+        # Say how much of the sample Garmin's own labels could not describe, so
+        # the share of guessed rows is never implied.
+        kinds = {kind: sum(len(v) for (_, k), v in by_kind.items() if k == kind) for kind in
+                 set(k for (_, k) in by_kind)}
+        total = sum(kinds.values())
+        unknown = kinds.get(UNKNOWN_LABEL, 0)
+        print(f"{total} shots by type, {unknown} ({100 * unknown / total:.0f}%) not classifiable")
+        report_by_kind(by_kind, args.min_shots)
+        return 0
+    grouped = collect(shots, args.min_meters, args.lie, pars)
     if not grouped:
         print("no shot above the distance floor", file=sys.stderr)
         return 1

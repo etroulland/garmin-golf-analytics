@@ -6,6 +6,25 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- `UNKNOWN` shots are no longer dropped. Garmin leaves a large share of tracked
+  shots without a `shotType`; the report skipped them without saying so, which
+  shrank every sample. They are now classified from the lie, the hole's par and
+  the distance, and whatever is still guessed is printed as `Unclassified` with
+  its share of the sample.
+- The `TeeBox` lie no longer implies a tee shot. Garmin tags the FIRST shot of
+  a hole `TeeBox` whatever club was hit, so a 7-iron opened on a par 4 was
+  counted as a drive. A first shot on a par 4 or 5 with a club short of a wood
+  is now `Layup (tee)`; a par 3 tee shot stays a tee shot.
+- A putter shot from the fringe counts as a putt in both views instead of
+  drifting into the chip rows.
+
+### Added
+
+- `gga-clubs --by-shot-type`: one row per (club, shot kind) instead of per lie,
+  so a chip and a tee shot of the same club stop sharing a median.
+
 ## [0.0.4] - 2026-10-29
 
 ### Added

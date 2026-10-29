@@ -94,8 +94,9 @@ distance report rather than shown as `clubId:<n>`, which no one can act on.
 
 ```bash
 gga-clubs rounds/
-gga-clubs rounds/ --lie TeeBox      # first shot of a hole (see caveat below)
-gga-clubs rounds/ --min-meters 40   # raise the floor to drop chips
+gga-clubs rounds/ --lie TeeBox        # shots played from the tee box, whatever the club
+gga-clubs rounds/ --min-meters 40     # raise the floor to drop chips
+gga-clubs rounds/ --by-shot-type      # one row per (club, shot kind)
 ```
 
 Median, p75, p90 and max per club **per lie**, because that is how the numbers are actually usable
@@ -103,8 +104,15 @@ on the course. Clubs under 5 tracked shots are flagged `(low n)`.
 
 Every distance is a **total** distance: Garmin stores one `meters` value per shot, from the start
 point to the end point, roll included. Carry is not in the data and is not reported.
+
 `startLoc.lie == "TeeBox"` means "first shot played on that hole", not "hit from the tee": a par 4
-played 5-iron then wedge tags the 5-iron TeeBox and the wedge Fairway.
+played 5-iron then wedge tags the 5-iron TeeBox and the wedge Fairway. `--by-shot-type` handles
+that: a first shot on a par 4 or 5 with a club short of a wood is reported as `Layup (tee)`, a
+par 3 tee shot stays `Tee`.
+
+Garmin leaves a good share of tracked shots with no `shotType` at all. Those are kept and
+classified from the lie, the par and the distance; whatever is still unresolvable closes the table
+as `Unclassified`, with its share of the sample printed above it. It is never silently dropped.
 
 Garmin records only a fraction of the swings you take, so n is small for a long time. Treat
 anything under 5 shots as noise and never let one low-n club outrank a measured one.
