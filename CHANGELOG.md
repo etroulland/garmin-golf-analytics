@@ -6,6 +6,15 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.0.9] - 2026-10-29
+
+### Fixed
+
+- The `garminconnect<0.3` pin was wrong: 0.3.x logs in and fetches fine, and the
+  pin forced pip to install an old release that could not read the token store
+  written by 0.3 (`FileNotFoundError: oauth1_token.json`). The floor stays at
+  0.2.19, with no upper bound.
+
 ## [0.0.8] - 2026-10-29
 
 ### Added
