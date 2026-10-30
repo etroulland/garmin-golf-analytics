@@ -282,13 +282,30 @@ def test_club_map_from_api_survives_a_failing_endpoint():
     assert fetch.club_map_from_api(client) == {}
 
 
-def test_club_type_names_only_holds_checked_types():
-    # A guessed id mislabels every shot: the table must stay small and verified.
+def test_club_type_names_match_garmins_reference_table():
+    # Copied from GET /gcs-golfcommunity/api/v2/club/types. A guessed id
+    # mislabels every shot, and this table was off by one from the 4-iron down
+    # for months: type 14 is Garmin's 5 Iron, not its 6 Iron.
     assert fetch.CLUB_TYPE_NAMES[1] == "Driver"
-    assert fetch.CLUB_TYPE_NAMES[14] == "6 Iron"
+    assert fetch.CLUB_TYPE_NAMES[7] == "4 Hybrid"
+    assert fetch.CLUB_TYPE_NAMES[14] == "5 Iron"
+    assert fetch.CLUB_TYPE_NAMES[15] == "6 Iron"
+    assert fetch.CLUB_TYPE_NAMES[18] == "9 Iron"
     assert fetch.CLUB_TYPE_NAMES[19] == "Pitching Wedge"
+    assert fetch.CLUB_TYPE_NAMES[20] == "Gap Wedge"
+    assert fetch.CLUB_TYPE_NAMES[22] == "Lob Wedge"
     assert fetch.CLUB_TYPE_NAMES[23] == "Putter"
-    assert 22 not in fetch.CLUB_TYPE_NAMES
+
+
+def test_club_type_names_are_contiguous_and_ordered():
+    # Garmin numbers the bag 1..23 with no gap, woods then hybrids then irons
+    # then wedges then the putter. A hole in the range means a dropped club type
+    # and a name that will silently fall back to "club:<type>".
+    assert sorted(fetch.CLUB_TYPE_NAMES) == list(range(1, 24))
+    order = [fetch.CLUB_TYPE_NAMES[i] for i in range(1, 24)]
+    assert order.index("Driver") < order.index("3 Hybrid") < order.index("5 Iron")
+    assert order.index("5 Iron") < order.index("9 Iron") < order.index("Lob Wedge")
+    assert order[-1] == "Putter"
 
 
 def test_fetch_round_drops_garmins_net_score():

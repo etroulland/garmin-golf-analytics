@@ -6,6 +6,19 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.0.16] - 2026-10-30
+
+### Fixed
+
+- Every iron was named one club too long: `CLUB_TYPE_NAMES` said type 14 is a
+  6 Iron where Garmin calls it a 5 Iron, so a player hitting a 5 iron off the tee
+  was reported as hitting a 6 iron. The table is now copied from Garmin's own
+  reference endpoint, `GET /gcs-golfcommunity/api/v2/club/types`, which also
+  documents the hybrids (4 to 9) and the lob wedge that were missing.
+- Two tests lock the table down: one asserts the names, the other asserts the
+  ids run 1 to 23 with no gap and in bag order, so a dropped type cannot fall
+  back to `club:<type>` unnoticed.
+
 ## [0.0.15] - 2026-10-30
 
 ### Added

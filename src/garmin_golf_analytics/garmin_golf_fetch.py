@@ -47,26 +47,39 @@ except ImportError:  # pragma: no cover
 CLUB_TYPES_FILE = "Golf-CLUB_TYPES.json"
 CLUBS_FILE = "Golf-CLUB.json"
 
-# clubTypeId -> name, for the types this account actually uses. The API returns
-# the id but never the label, so the table is the only source of readable names.
-# Every entry was checked against a DI-GOLF data export on real clubs; do not
-# guess the gaps, an off-by-one numbering silently mislabels every shot. Types
-# absent from the table fall back to "club:<type>", which still beats a bare id.
+# clubTypeId -> name, copied verbatim from Garmin's own reference table:
+#   GET /gcs-golfcommunity/api/v2/club/types  ->  [{"value": 14, "name": "5 Iron"}, ...]
+# The `club/player` endpoint returns the id but never the label, so this table is
+# the only source of readable names. An earlier version of this table was written
+# from memory and was off by one from the 4-iron down: type 14 was called "6 Iron"
+# when Garmin calls it "5 Iron", which mislabelled every iron in every report. Do
+# not edit an entry without reading it back from that endpoint first.
 CLUB_TYPE_NAMES = {
-    1: "Driver",            # checked against a data export
-    6: "4 Hybrid",          # checked
-    7: "5 Iron",            # checked
-    12: "4 Iron",           # NOT checked
-    13: "5 Iron",           # NOT checked
-    14: "6 Iron",           # checked
-    15: "7 Iron",           # checked
-    16: "8 Iron",           # checked
-    17: "9 Iron",           # checked
-    19: "Pitching Wedge",   # checked
-    20: "Gap Wedge",        # checked
-    21: "Sand Wedge",       # checked
-    23: "Putter",           # checked
+    1: "Driver",
+    2: "3 Wood",
+    3: "5 Wood",
+    4: "1 Hybrid",
+    5: "2 Hybrid",
+    6: "3 Hybrid",
+    7: "4 Hybrid",
+    8: "5 Hybrid",
+    9: "6 Hybrid",
+    10: "1 Iron",
+    11: "2 Iron",
+    12: "3 Iron",
+    13: "4 Iron",
+    14: "5 Iron",
+    15: "6 Iron",
+    16: "7 Iron",
+    17: "8 Iron",
+    18: "9 Iron",
+    19: "Pitching Wedge",
+    20: "Gap Wedge",
+    21: "Sand Wedge",
+    22: "Lob Wedge",
+    23: "Putter",
 }
+CLUB_TYPES_PATH = "/gcs-golfcommunity/api/v2/club/types"
 DEFAULT_OUTDIR = "rounds"
 SUMMARY_PAGE = 50
 
