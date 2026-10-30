@@ -6,6 +6,27 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.0.15] - 2026-10-30
+
+### Added
+
+- `ruff` and `mypy` are configured in `pyproject.toml` and run in CI. The 50 lint
+  findings and 20 type errors they surfaced are fixed, including two casts on the
+  untyped `garminconnect` returns that were silently assumed to be lists.
+- `CONTRIBUTING.md`: the rules the data imposes on any new report, the layout and
+  the release process.
+- `make check` runs lint, types and tests in the order CI runs them.
+
+### Changed
+
+- `shot_classification.py` holds what a shot was and which shots enter a table;
+  `club_report.py` keeps the rendering and the CLI. Same figures, byte for byte:
+  532 lines became 380 plus 117 of rules, verified by diffing the output.
+
+### Fixed
+
+- The PyPI author metadata said "Etienne Troulland"; it is "Etienne Roulland".
+
 ## [0.0.14] - 2026-10-29
 
 ### Added

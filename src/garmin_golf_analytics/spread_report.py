@@ -16,6 +16,7 @@ import os
 import statistics
 import sys
 
+from . import output
 from .club_report import (
     DEFAULT_MIN_METERS,
     DEFAULT_MIN_SHOTS,
@@ -27,7 +28,6 @@ from .club_report import (
 )
 from .round_report import DEFAULT_MIN_HOLES
 from .rounds_common import load_bundles, played_holes, select
-from . import output
 
 DESCRIPTION = "How repeatable is each club: spread, floor and the share of short ones."
 

@@ -37,7 +37,7 @@ import json
 import os
 import sys
 from datetime import date, timedelta
-from typing import Any
+from typing import Any, cast
 
 try:
     from garminconnect import Garmin
@@ -92,13 +92,16 @@ def club_map_from_api(client: Garmin) -> dict[int, dict[str, Any]]:
     """
     try:
         clubs = client.get_golf_club_stats()
-    except Exception as exc:  # noqa: BLE001 - names must never block a fetch
+    except Exception as exc:
         print(f"club list unavailable ({type(exc).__name__}: {exc}), shots keep raw clubId",
               file=sys.stderr)
         return {}
     club_map: dict[int, dict[str, Any]] = {}
-    for club in clubs or []:
-        name = CLUB_TYPE_NAMES.get(club.get("clubTypeId"))
+    # garminconnect is untyped: mypy sees the return as str, but the endpoint
+    # returns a list of club dicts (or None). The cast documents that, and an
+    # empty answer degrades exactly like a failure.
+    for club in cast("list[dict[str, Any]]", clubs) or []:
+        name = CLUB_TYPE_NAMES.get(club.get("clubTypeId") or 0)
         club_map[club["id"]] = {
             "name": name,
             "loft": None,
@@ -145,7 +148,7 @@ def fetch_shots(client: Garmin, scid: int, hole_count: int) -> dict[int, list[di
                 f"{client.garmin_golf_shot}/{scid}/hole",
                 params={"hole-numbers": str(hole)},
             )
-        except Exception as exc:  # noqa: BLE001 - one hole must not kill the round
+        except Exception as exc:
             print(f"  hole {hole} skipped: {type(exc).__name__}: {exc}", file=sys.stderr)
             continue
         for hole_shots in payload.get("holeShots", []):
@@ -156,7 +159,7 @@ def fetch_shots(client: Garmin, scid: int, hole_count: int) -> dict[int, list[di
 def attach_clubs(shots: dict[int, list[dict]], club_map: dict[int, dict]) -> None:
     for hole_shots in shots.values():
         for shot in hole_shots:
-            club = club_map.get(shot.get("clubId"), {})
+            club = club_map.get(shot.get("clubId") or 0, {})
             shot["clubName"] = club.get("name")
             shot["clubLoft"] = club.get("loft")
 
@@ -208,7 +211,8 @@ def fetch_round(client: Garmin, scid: int, club_map: dict[int, dict]) -> dict:
 def select_targets(client: Garmin, days: int | None, scid: int | None) -> list[int]:
     if scid:
         return [scid]
-    summaries = client.get_golf_summary(0, SUMMARY_PAGE).get("scorecardSummaries", [])
+    summaries = cast("dict[str, Any]",
+                        client.get_golf_summary(0, SUMMARY_PAGE)).get("scorecardSummaries", [])
     if not days:
         return [summaries[0]["id"]] if summaries else []
     cutoff = date.today() - timedelta(days=days)
@@ -257,7 +261,7 @@ def main(argv: list[str] | None = None) -> int:
     for scid in targets:
         try:
             bundle = fetch_round(client, scid, club_map)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             print(f"FAIL {scid}: {type(exc).__name__}: {exc}", file=sys.stderr)
             continue
         played_on = bundle["scorecard"]["startTime"][:10]

@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import pytest
+from conftest import bundle, shot
 
 import garmin_golf_analytics.club_report as club_report
-from conftest import bundle, hole, shot
 
 
 def test_percentile_interpolates():
@@ -212,5 +212,5 @@ def test_report_counts_good_lies(rounds_dir, capsys):
     rough["endLoc"] = {"lie": "Rough"}
     data = bundle(shots={"1": [fairway], "2": [rough]})
     assert club_report.main([rounds_dir(data), "--min-meters", "0"]) == 0
-    line = [l for l in capsys.readouterr().out.splitlines() if l.startswith("Driver")][0]
+    line = next(line for line in capsys.readouterr().out.splitlines() if line.startswith("Driver"))
     assert " 50%" in line

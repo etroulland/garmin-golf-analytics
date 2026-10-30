@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from conftest import bundle, hole, shot
+
 from garmin_golf_analytics.hole_sync import coverage, hole_discrepancy, hole_shots, non_putt_count
 
 
@@ -60,7 +61,7 @@ def test_coverage_counts_holes_off_and_missing_strokes():
 
 def test_coverage_of_a_fully_tracked_round():
     holes = [hole(n, 3, putts=1) for n in range(1, 10)]
-    data = bundle(holes=holes, shots={"%d" % n: [shot("5 Iron", 150), shot("8 Iron", 90)]
+    data = bundle(holes=holes, shots={f"{n}": [shot("5 Iron", 150), shot("8 Iron", 90)]
                                       for n in range(1, 10)})
     assert coverage(data) == (9, 0, 0)
 

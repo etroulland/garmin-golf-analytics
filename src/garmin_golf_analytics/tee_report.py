@@ -15,11 +15,11 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from typing import Iterable
+from collections.abc import Iterable
 
+from . import output
 from .round_report import DEFAULT_MIN_HOLES
 from .rounds_common import load_bundles, played_holes, select
-from . import output
 
 DESCRIPTION = "Which club keeps your tee shot in play?"
 

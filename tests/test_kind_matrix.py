@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from garmin_golf_analytics.club_report import main
 
-
 ROUND = (
     '{"scorecard": {"startTime": "2026-09-01 08:00:00", "courseGlobalId": 1, "strokes": 40,'
     ' "holes": [{"number": 1, "strokes": 4, "putts": 2, "penalties": 0}]},'
@@ -40,7 +39,7 @@ def test_kind_matrix_splits_one_club_into_its_two_jobs(tmp_path, capsys):
 def test_kind_matrix_default_columns_are_tee_approach_chip(tmp_path, capsys):
     code, out, _ = run(tmp_path, capsys, "--matrix", "--matrix-axis", "kind")
     assert code == 0
-    header = [line for line in out.splitlines() if line.startswith("club")][0]
+    header = next(line for line in out.splitlines() if line.startswith("club"))
     assert header.split() == ["club", "Tee", "Approach", "Chip"]
 
 

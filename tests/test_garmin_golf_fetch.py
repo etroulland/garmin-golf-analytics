@@ -8,9 +8,9 @@ from __future__ import annotations
 import json
 
 import pytest
+from conftest import shot
 
 import garmin_golf_analytics.garmin_golf_fetch as fetch
-from conftest import shot
 
 
 class StubClient:

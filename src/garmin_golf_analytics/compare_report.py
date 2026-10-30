@@ -26,12 +26,19 @@ import sys
 from datetime import date
 from statistics import median
 
-from .club_report import (DEFAULT_MIN_SHOTS, DISTANCE_LABEL, MISHIT_METERS, bundle_pars,
-                          collect_by_kind, iter_shots, percentile)
-from .rounds_common import load_bundles, played_holes, select
-from .round_report import BLOWUP_STROKES, putt_status
-from .scoring import net_score, relative_score
 from . import output
+from .club_report import (
+    DEFAULT_MIN_SHOTS,
+    DISTANCE_LABEL,
+    MISHIT_METERS,
+    bundle_pars,
+    collect_by_kind,
+    iter_shots,
+    percentile,
+)
+from .round_report import BLOWUP_STROKES, putt_status
+from .rounds_common import load_bundles, played_holes, select
+from .scoring import net_score, relative_score
 
 DESCRIPTION = "Compare two date windows: is the player better now than before?"
 DEFAULT_MIN_HOLES = 9
@@ -175,7 +182,7 @@ def club_compare(bundles: list[dict], periods: tuple[tuple[date, date], ...],
 
     left, right = sides
     keys = sorted(set(left) | set(right), key=lambda key: (-(right.get(key) or left[key])["median_m"], key))
-    records = []
+    records: list[dict] = []
     for club, kind in keys:
         first, second = left.get((club, kind)), right.get((club, kind))
         first_median = first["median_m"] if first else None
@@ -189,14 +196,14 @@ def club_compare(bundles: list[dict], periods: tuple[tuple[date, date], ...],
             "median_a_m": first_median,
             "n_b": second["n"] if second else 0,
             "median_b_m": second_median,
-            "delta_m": None if thin else round(second_median - first_median, 1),
+            "delta_m": None if thin else round((second_median or 0) - (first_median or 0), 1),
             "low_confidence": thin,
         })
 
     if not records:
         return records, lines
 
-    title_a, title_b = (title[:16] for title in titles)
+    _title_a, _title_b = (title[:16] for title in titles)
     lines.append("")
     lines.append(f"{'club':22} {'shot':12} {'n a':>4} {'med a':>6} {'n b':>4} {'med b':>6} {'delta':>7}")
     lines.append("-" * 66)
@@ -297,7 +304,8 @@ def compare(bundles: list[dict], periods: tuple[tuple[date, date], ...],
         print(f"{period[0]} .. {period[1]}: {selection.describe()}")
 
     if not all(side["rounds"] for side in sides):
-        empty = [f"{period[0]}..{period[1]}" for period, side in zip(periods, sides) if not side["rounds"]]
+        empty = [f"{period[0]}..{period[1]}" for period, side in zip(periods, sides, strict=True)
+                 if not side["rounds"]]
         print(f"nothing to compare in: {', '.join(empty)}", file=sys.stderr)
         return 1
 
@@ -329,7 +337,8 @@ def compare(bundles: list[dict], periods: tuple[tuple[date, date], ...],
     if left["putt_rounds"] < left["rounds"] or right["putt_rounds"] < right["rounds"]:
         print(f"Putt figures cover {left['putt_rounds']}/{left['rounds']} and "
               f"{right['putt_rounds']}/{right['rounds']} rounds with usable data only.")
-    missing_par = [period for period, side in zip(periods, sides) if side.get("to_par_per_hole") is None]
+    missing_par = [period for period, side in zip(periods, sides, strict=True)
+                   if side.get("to_par_per_hole") is None]
     if missing_par:
         print("Over par unavailable for: " + ", ".join(f"{p[0]}..{p[1]}" for p in missing_par)
               + " (no course pars in those bundles: refetch)")
@@ -396,13 +405,13 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         return 0
 
-    records = player_records(bundles, periods, args.min_holes,
-                             keep_excluded=args.keep_excluded, min_sample=args.min_sample)
-    if records is None:
+    compared = player_records(bundles, periods, args.min_holes,
+                              keep_excluded=args.keep_excluded, min_sample=args.min_sample)
+    if compared is None:
         print("nothing to compare in one of the two windows", file=sys.stderr)
         return 1
     if args.format != "text":
-        output.write(records, args.format)
+        output.write(compared, args.format)
         return 0
     return compare(bundles, periods, args.min_holes, keep_excluded=args.keep_excluded,
                    min_sample=args.min_sample)

@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [{ name = "Etienne Troulland" }]
+authors = [{ name = "Etienne Roulland" }]
 keywords = ["garmin", "golf", "garmin-connect", "sports-analytics"]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -25,7 +25,7 @@ classifiers = [
 dependencies = ["garminconnect>=0.3.20"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pytest-cov>=5"]
+dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.7", "mypy>=1.11"]
 
 [project.urls]
 Homepage = "https://github.com/etroulland/garmin-golf-analytics"
@@ -50,6 +50,32 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4", "RUF"]
+# RUF001-003: the docs and comments are in French, curly quotes and non-breaking
+# spaces in prose are deliberate.
+# ISC: the report headers are split across lines on purpose, an f-string per
+# column would be less readable than the table it renders.
+ignore = ["RUF001", "RUF002", "RUF003", "ISC001", "ISC002", "E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_ignores = true
+warn_redundant_casts = true
+# Garmin's JSON is untyped by nature: every bundle is a dict of whatever the
+# API felt like returning. The models are validated at the point of use, not at
+# the boundary, so the boundary stays permissive.
+disallow_untyped_defs = false
+check_untyped_defs = true
+ignore_missing_imports = true
 
 [tool.coverage.run]
 source = ["garmin_golf_analytics"]

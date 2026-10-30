@@ -1,8 +1,9 @@
 """round_report.py: the aggregate, the drop reasons, and the putt labelling."""
 from __future__ import annotations
 
-import garmin_golf_analytics.round_report as round_report
 from conftest import bundle, hole
+
+import garmin_golf_analytics.round_report as round_report
 
 
 def nine(putts=2, strokes=5, penalties=0):
@@ -33,7 +34,7 @@ def test_report_drops_partial_and_practice(rounds_dir, capsys):
 def test_report_prints_one_line_per_kept_round(rounds_dir, capsys):
     data = rounds_dir(bundle(date="2026-09-01"), bundle(date="2026-09-02", course=25555))
     assert round_report.main([data]) == 0
-    lines = [l for l in capsys.readouterr().out.splitlines() if "holes=" in l]
+    lines = [line for line in capsys.readouterr().out.splitlines() if "holes=" in line]
     assert len(lines) == 2
     assert "2026-09-01" in lines[0]
 

@@ -30,10 +30,10 @@ import sys
 from collections import Counter
 from statistics import median
 
+from . import output
 from .hole_sync import coverage
 from .rounds_common import load_bundles, played_holes, select
-from .scoring import format_relative, hole_pars, net_score, played_par, relative_score
-from . import output
+from .scoring import format_relative, net_score, played_par, relative_score
 
 DEFAULT_MIN_HOLES = 9
 BLOWUP_STROKES = 7
@@ -47,7 +47,7 @@ def usable_putts(bundle: dict, holes: list[dict]) -> list[int] | None:
     constant count is Garmin's fill, never a real game, whatever the sensor
     says, so it is dropped. Returns None when there is nothing to average.
     """
-    putts = [h.get("putts") for h in holes if h.get("putts") is not None]
+    putts: list[int] = [h["putts"] for h in holes if h.get("putts") is not None]
     if not putts:
         return None
     if len(set(putts)) == 1:

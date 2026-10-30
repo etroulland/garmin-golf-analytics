@@ -4,9 +4,9 @@ from __future__ import annotations
 import json
 
 import pytest
+from conftest import bundle, hole
 
 import garmin_golf_analytics.rounds_common as rounds_common
-from conftest import bundle, hole
 from garmin_golf_analytics.rounds_common import load_bundles, played_holes, select, short_reason
 
 
@@ -102,6 +102,5 @@ def test_stroke_floors_are_module_constants():
 
 
 def test_load_bundles_missing_directory_raises():
-    import pytest
     with pytest.raises(FileNotFoundError):
         load_bundles("/nonexistent/dir")

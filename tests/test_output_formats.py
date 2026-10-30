@@ -109,7 +109,7 @@ def test_club_profile_reports_one_row_per_club():
 def test_club_profile_drops_the_club_s_own_mishits():
     """A 20 m driver is a top, not a driver distance: it must not enter the median."""
     records = club_profile([round_bundle("2026-05-01", [20, 180, 190, 200])], min_meters=0)
-    driver = [record for record in records if record["club"] == "Driver"][0]
+    driver = next(record for record in records if record["club"] == "Driver")
     assert driver["mishits"] == 1
     assert driver["n"] == 3
     assert driver["median_m"] == pytest.approx(190)
@@ -129,7 +129,7 @@ def test_club_compare_signs_the_delta_from_a_to_b():
                                   ((date(2025, 1, 1), date(2025, 12, 31)),
                                    (date(2026, 1, 1), date(2026, 12, 31))),
                                   min_holes=9, min_meters=0, min_shots=3)
-    driver = [record for record in records if record["club"] == "Driver"][0]
+    driver = next(record for record in records if record["club"] == "Driver")
     assert driver["median_a_m"] == pytest.approx(172)
     assert driver["median_b_m"] == pytest.approx(192)
     assert driver["delta_m"] == pytest.approx(20)
@@ -145,7 +145,7 @@ def test_club_compare_withholds_a_delta_on_a_thin_sample():
                                   ((date(2025, 1, 1), date(2025, 12, 31)),
                                    (date(2026, 1, 1), date(2026, 12, 31))),
                                   min_holes=9, min_meters=0, min_shots=5)
-    driver = [record for record in records if record["club"] == "Driver"][0]
+    driver = next(record for record in records if record["club"] == "Driver")
     assert driver["delta_m"] is None
     assert driver["low_confidence"] is True
     assert any("low n" in line for line in lines)

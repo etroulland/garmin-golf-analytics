@@ -28,7 +28,7 @@ def test_matrix_prints_a_median_per_club_and_lie(capsys):
 def test_matrix_marks_an_empty_cell_with_a_dash(capsys):
     report_matrix(collect(("Driver", "TeeBox", 195)), min_shots=5, lies=("TeeBox", "Fairway"))
     out = capsys.readouterr().out
-    driver_line = [line for line in out.splitlines() if line.startswith("Driver")][0]
+    driver_line = next(line for line in out.splitlines() if line.startswith("Driver"))
     assert "-" in driver_line.split("TeeBox")[-1] or driver_line.rstrip().endswith("-")
 
 

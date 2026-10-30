@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
 from garmin_golf_analytics.club_report import club_records, split_mishits
-from garmin_golf_analytics.round_report import main as rounds_main, round_records
+from garmin_golf_analytics.round_report import main as rounds_main
+from garmin_golf_analytics.round_report import round_records
 
 PARS = {"1": 4, "2": 4, "3": 3, "4": 4, "5": 5, "6": 4, "7": 3, "8": 4, "9": 4}
 
@@ -95,7 +95,7 @@ def test_split_mishits_of_nothing():
 def test_club_records_hold_the_same_figures_as_the_table():
     shots = {"1": [tee_shot(180), tee_shot(200)]}
     records = club_records([bundle("2026-05-01", [5] * 9, shots=shots)], min_meters=0)
-    driver = [record for record in records if record["club"] == "Driver"][0]
+    driver = next(record for record in records if record["club"] == "Driver")
     assert driver["lie"] == "TeeBox"
     assert driver["n"] == 2
     assert driver["median_m"] == pytest.approx(190)

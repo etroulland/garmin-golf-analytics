@@ -16,6 +16,7 @@ import os
 import sys
 from collections import defaultdict
 
+from . import output
 from .round_report import (
     BLOWUP_STROKES,
     DEFAULT_MIN_HOLES,
@@ -23,7 +24,6 @@ from .round_report import (
 )
 from .rounds_common import load_bundles, played_holes, select
 from .scoring import net_score, played_par, relative_score
-from . import output
 
 DESCRIPTION = "Same rounds, one row per course: where you actually score."
 
@@ -58,7 +58,8 @@ def course_records(bundles: list[dict]) -> list[dict]:
         strokes = [hole["strokes"] for hole in holes]
         # Putts are per round and a course is many rounds: only the rounds Garmin
         # measured count, the others would drag the average toward 2 putts a hole.
-        measured = []
+        measured: list[int] = []
+        ratios = [value for b in rounds if (value := relative_score(b)) is not None]
         for bundle in rounds:
             round_putts, _label = putt_status(bundle, played_holes(bundle))
             if round_putts:
@@ -70,10 +71,8 @@ def course_records(bundles: list[dict]) -> list[dict]:
             "strokes_per_hole": round(sum(strokes) / len(holes), 2),
             "to_par_per_hole": round(sum(relative_score(b) or 0 for b in rounds) / len(holes), 2),
             "net_to_par_per_hole": round(sum(net_score(b) or 0 for b in rounds) / len(holes), 2),
-            "best_to_par": min((relative_score(b) for b in rounds if relative_score(b) is not None),
-                               default=None),
-            "worst_to_par": max((relative_score(b) for b in rounds if relative_score(b) is not None),
-                                default=None),
+            "best_to_par": min(ratios, default=None),
+            "worst_to_par": max(ratios, default=None),
             "blowup_percent": round(100 * sum(1 for value in strokes if value >= BLOWUP_STROKES)
                                     / len(holes), 1),
             "putts_per_hole": round(sum(measured) / len(measured), 2) if measured else None,

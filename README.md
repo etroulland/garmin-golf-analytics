@@ -218,6 +218,7 @@ an unmeasured value stays `null` instead of becoming a zero. A withheld delta is
 ```
 src/garmin_golf_analytics/
   garmin_golf_fetch.py  fetch rounds from the Garmin API
+  shot_classification.py what a shot was, which shots enter a table
   club_report.py        distance tables per club, split by lie
   round_report.py       score, penalties, blow-up holes, putting
   compare_report.py     two date windows, per-hole or per-club figures and their delta
@@ -229,18 +230,19 @@ src/garmin_golf_analytics/
   scoring.py            per-hole par and relative score
   hole_sync.py          tracked shots vs scorecard reconciliation
   cli.py                the `gga` dispatcher
-tests/                  198 tests, 93% coverage
+tests/                  one file per module, 265 tests, 93% coverage
 ```
 
 ## Development
 
 ```bash
 pip install -e '.[dev]'
-./run_tests.sh        # pytest + coverage gate at 90%
+make check        # ruff + mypy + pytest with the coverage gate
 ```
 
-CI runs the suite on Python 3.12 to 3.14 and checks that every console script
-resolves (`.github/workflows/tests.yml`).
+CI runs all three on Python 3.12 to 3.14 and checks that every console script
+resolves (`.github/workflows/tests.yml`). See [CONTRIBUTING.md](CONTRIBUTING.md)
+for the rules the data imposes on any new report.
 
 ## License
 

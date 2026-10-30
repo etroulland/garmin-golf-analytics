@@ -1,8 +1,6 @@
 """The `gga` dispatcher: one entry point, three commands."""
 from __future__ import annotations
 
-import pytest
-
 from garmin_golf_analytics import cli
 
 
